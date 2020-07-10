@@ -19,6 +19,7 @@ gravity_strength = 1.8
 bullets = []
 tile_rects = []
 particles = []
+enemies = []
 
 #-----Load Images-----
 cursor = pygame.transform.scale(pygame.image.load('data/images/cursor.png'), (32, 32)).convert()
@@ -226,17 +227,30 @@ class Player():
 		self.frame = frame
 
 class Enemy():
-	def __init__(self, vel, jump_height, pathfind_range):
+	def __init__(self, start_pos, width, height, vel, jump_height, pathfind_range):
+		self.start_pos = start_pos
+		self.width = width
+		self.height = height
 		self.vel = vel
 		self.jump_height = jump_height
 		self.pathfind_range = pathfind_range
 		self.movement = [0, 0]
+		self.moving_right = False
+		self.moving_left = False
+		self.jumping = False 
 		self.vertical_momentum = 0
+		self.flip = False
 		self.animation_speed = 0
 		self.frame = 0
 		self.action = 'Idle'
 		self.animation_database = load_animations(['Running', 'Idle', 'Walking'], 'enemy_images')
-		self.rect = pygame.Rect(int(levels[self.level].player_pos[0]), int(levels[self.level].player_pos[1]), self.width, self.height)
+		self.rect = pygame.Rect(int(self.start_pos[0]), int(self.start_pos[1]), self.width, self.height)
+
+	def update(self):
+		self.move()
+		self.ai()
+		self.attack()
+		self.looking()
 
 	def move(self):
 		if self.moving_right == True:
@@ -295,13 +309,27 @@ class Enemy():
 
 		screen.blit(pygame.transform.flip(current_image, self.flip, False), (int(self.rect.x - 60 - scroll[0]), int(self.rect.y - 40 - scroll[1])))
 
+	def change_action(self, current_action, new_action, frame):
+		if current_action != new_action:
+			current_action = new_action
+			frame = 0
+		self.action = current_action
+		self.frame = frame
+
 	def attack(self):
-		if sqrt((self.rect.centerx - player.rect.centerx)^2 + (self.rect.centery - player.rect.centery)) <= self.pathfind_range:
+		print(math.sqrt(abs((self.rect.centerx - player.rect.centerx)**2 + (self.rect.centery - player.rect.centery))))
+		if math.sqrt(abs((self.rect.centerx - player.rect.centerx)**2 + (self.rect.centery - player.rect.centery))) <= self.pathfind_range:
 			pass
 
 	def ai(self):
-		if sqrt((self.rect.centerx - player.rect.centerx)^2 + (self.rect.centery - player.rect.centery)) <= self.pathfind_range:
+		if math.sqrt(abs((self.rect.centerx - player.rect.centerx)**2 + (self.rect.centery - player.rect.centery))) <= self.pathfind_range:
 			pass
+
+	def looking(self):
+		if self.moving_right:
+			self.flip = False
+		if self.moving_left:
+			self.flip = True
 
 class Gun():
 	global x_offset, y_offset
@@ -399,11 +427,14 @@ class Particle():
 	def draw(self):
 		pygame.draw.circle(screen, self.color, (int(self.x - scroll[0]), int(self.y - scroll[1])), int(self.radius))
 
-levels = {'tutorial':Level(0, [600, 600], [800, 300]), 'level1':Level(1, [600, 600], [800, 300])}
+levels = {'tutorial':Level(0, [600, 600], [(800, 300), (1000, 300)]), 'level1':Level(1, [600, 600], [800, 300])}
 for level in levels:
 	levels[level].load_map()
 
 player = Player(75, 125, 10, 28)
+
+for enemy_pos in levels[player.level].enemy_pos:
+	enemies.append(Enemy(enemy_pos, 75, 125, 10, 28, 600))
 
 gun = Gun(gun_img)
 
@@ -429,6 +460,9 @@ def draw():
 
 	for particle in particles:
 		particle.draw()
+
+	for enemy in enemies:
+		enemy.draw()
 
 	player.draw()
 
@@ -519,6 +553,9 @@ while True:
 		particle.update()
 		if particle.radius <= 0:
 			particles.remove(particle)
+
+	for enemy in enemies:
+		enemy.update()
 
 	player.update()
 	gun.update()
