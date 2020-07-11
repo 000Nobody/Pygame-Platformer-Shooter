@@ -15,6 +15,7 @@ display = pygame.Surface(WINDOW_SIZE)
 
 pygame.mouse.set_visible(False)
 
+# Create variables
 scroll = [0,0]
 gravity_strength = 1.8
 bullets = []
@@ -23,7 +24,7 @@ tile_rects = []
 particles = []
 enemies = []
 
-#-----Load Images-----
+# Load Images
 cursor = pygame.transform.scale(pygame.image.load('data/images/cursor.png'), (32, 32)).convert()
 cursor.set_colorkey((255, 255, 255))
 
@@ -56,7 +57,7 @@ def load_animations(actions, folder_name): #(['Running', 'Idle'], 'player_images
 			animation_database[action].append(pygame.transform.scale(image_id, (200, 200)))
 	return animation_database
 
-#-----Load Sounds-----
+# Load sounds
 death_sound = pygame.mixer.Sound('data/sounds/death.wav')
 jump_sound = pygame.mixer.Sound('data/sounds/jump.wav')
 shoot_sound = pygame.mixer.Sound('data/sounds/shoot.wav')
@@ -72,7 +73,7 @@ enemy_hit_sound.set_volume(0.7)
 pygame.mixer.music.load('data/sounds/bgmusic.wav')
 pygame.mixer.music.set_volume(0.6)
 
-#-----Classes------
+#Classes
 class Level():
 	def __init__(self, id, player_pos, enemy_pos):
 		self.player_pos = player_pos
@@ -474,6 +475,7 @@ class Particle():
 	def draw(self):
 		pygame.draw.circle(display, self.color, (int(self.x - scroll[0]), int(self.y - scroll[1])), int(self.radius))
 
+# Create classes
 levels = {'tutorial':Level(0, [600, 600], [(1600, 300)]), 'level1':Level(1, [600, 600], [800, 300])}
 for level in levels:
 	levels[level].load_map()
@@ -485,7 +487,7 @@ for enemy_pos in levels[player.level].enemy_pos:
 
 gun = Gun(gun_img)
 
-#-----Functions-----
+#Functions
 def collision_check(rect, tiles):
 	hit_list = []
 	for tile in tiles:
@@ -534,13 +536,14 @@ def draw():
 
 pygame.mixer.music.play(-1)
 
-#-----Main Loop-----
+# Main Loop
 while True:
 	clock.tick(60)
 
 	scroll[0] += int((player.rect.x - scroll[0] - (WINDOW_SIZE[0]/2 + player.width/2))/20)
 	scroll[1] += int((player.rect.y - scroll[1] - (WINDOW_SIZE[1]/2 + player.height/2))/20)
 
+# Events
 	for event in pygame.event.get():
 		if event.type == QUIT:
 			pygame.quit()
@@ -577,11 +580,13 @@ while True:
 				player.sprinting = False
 				player.vel = 10
 
+# die conditions
 	if player.rect.y >= WINDOW_SIZE[1] + 300:
 		player.die()
 	if player.health <= 0:
 		player.die()
 
+# player bullets
 	for bullet in bullets:
 		if len(bullets) <= 30:
 			bullet.update()
@@ -610,6 +615,7 @@ while True:
 		else:
 			bullets.remove(bullet)
 
+# enemy bullets
 	for bullet in enemy_bullets:
 		if len(enemy_bullets) <= 30:
 			bullet.update()
@@ -647,6 +653,7 @@ while True:
 		if particle.radius <= 0:
 			particles.remove(particle)
 
+# enemy die conditions
 	for enemy in enemies:
 		if enemy.health <= 0 or enemy.rect.y >= 1080:
 			enemies.remove(enemy)
@@ -660,4 +667,4 @@ while True:
 	gun.update()
 	draw()
 
-	# print(clock.get_fps())
+	print(clock.get_fps())
