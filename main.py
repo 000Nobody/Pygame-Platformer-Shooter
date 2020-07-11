@@ -43,6 +43,9 @@ gun_img = pygame.image.load('data/images/gun.png').convert_alpha()
 projectile_img = pygame.image.load('data/images/projectile.png').convert()
 projectile_img.set_colorkey((0, 0, 0))
 
+enemy_projectile_img = pygame.image.load('data/images/enemy_projectile.png').convert()
+enemy_projectile_img.set_colorkey((0, 0, 0))
+
 def load_animations(actions, folder_name): #(['Running', 'Idle'], 'player_images')
 	animation_database = {}
 	for action in actions:
@@ -60,6 +63,7 @@ shoot_sound = pygame.mixer.Sound('data/sounds/shoot.wav')
 explosion_sound = pygame.mixer.Sound('data/sounds/explosion.wav')
 enemy_hit_sound = pygame.mixer.Sound('data/sounds/enemy_hit.wav')
 enemy_death_sound = pygame.mixer.Sound('data/sounds/enemy_death.wav')
+player_hit_sound = pygame.mixer.Sound('data/sounds/player_hit.wav')
 jump_sound.set_volume(0.8)
 shoot_sound.set_volume(0.5)
 explosion_sound.set_volume(0.7)
@@ -109,13 +113,13 @@ class Level():
 			y += 1
 
 class Player():
-	def __init__(self, width, height, vel, jump_height):
+	def __init__(self, width, height, vel, jump_height, health):
 		self.vel = vel
 		self.width = width
 		self.height = height
 		self.jump_height = jump_height
+		self.health = health
 		self.jumping = False
-		self.living = True
 		self.moving_right = False
 		self.moving_left = False
 		self.flip = False
@@ -191,9 +195,11 @@ class Player():
 		enemies.clear()
 		bullets.clear()
 		particles.clear()
+		enemy_bullets.clear()
 		for enemy_pos in levels[self.level].enemy_pos:
 			enemies.append(Enemy(enemy_pos, 75, 125, 100, 1000, 1000))
 		pygame.mixer.music.play(-1)
+		self.health = 100
 		self.living = True
 
 	def draw(self):
@@ -225,6 +231,7 @@ class Player():
 		enemies.clear()
 		particles.clear()
 		bullets.clear()
+		enemy_bullets.clear()
 		self.level = new_level
 		self.rect.topleft = levels[new_level].player_pos
 		for enemy_pos in levels[new_level].enemy_pos:
@@ -253,6 +260,7 @@ class Enemy():
 		self.jump_height = 20
 		self.pathfind_range = pathfind_range
 		self.attack_range = attack_range
+		self.shoot_timer = 0
 		self.movement = [0, 0]
 		self.moving_right = False
 		self.moving_left = False
@@ -338,8 +346,13 @@ class Enemy():
 		self.frame = frame
 
 	def attack(self):
+		self.shoot_timer += 1
 		if math.sqrt(abs((self.rect.centerx - player.rect.centerx)**2 + (self.rect.centery - player.rect.centery)**2)) <= self.attack_range:
-			pass
+			if self.shoot_timer >= 60:
+				self.slopex = (player.rect.centerx - scroll[0]) - (self.rect.centerx - scroll[0] + 5)
+				self.slopey = (player.rect.centery - scroll[1]) - (self.rect.centery - scroll[1] + 35)
+				enemy_bullets.append(Projectile(self.rect.centerx + 5, self.rect.centery + 35, 15, 17, 50, math.atan2(self.slopey, self.slopex), enemy_projectile_img))
+				self.shoot_timer = 0
 		if self.rect.colliderect(player.rect):
 			player.die()
 
@@ -396,14 +409,14 @@ class Gun():
 		# pygame.draw.rect(display, (0, 0, 0), self.gun_rect, 1)
 
 class Projectile():
-	def __init__(self, x, y, radius, vel, damage, angle, color):
+	def __init__(self, x, y, radius, vel, damage, angle, image):
 		self.x = x
 		self.y = y
 		self.radius = radius
 		self.vel = vel
 		self.damage = damage
 		self.angle = angle
-		self.color = color
+		self.image = image
 		self.rect = pygame.Rect(self.x - self.radius, self.y - self.radius, self.radius * 2, self.radius * 2)
 
 	def update(self):
@@ -417,8 +430,8 @@ class Projectile():
 	def draw(self):
 		global projectile_img
 		self.rect = pygame.Rect(self.x - self.radius, self.y - self.radius, self.radius * 2, self.radius * 2)
-		projectile_img = pygame.transform.scale(projectile_img, (self.radius * 2, self.radius * 2))
-		display.blit(projectile_img, (int(self.x - scroll[0] - self.radius), int(self.y - scroll[1] - self.radius)))
+		self.image = pygame.transform.scale(self.image, (self.radius * 2, self.radius * 2))
+		display.blit(self.image, (int(self.x - scroll[0] - self.radius), int(self.y - scroll[1] - self.radius)))
 		# pygame.draw.rect(display, (0, 0, 0), self.rect)
 
 	def collision_check(self, rects, tiles):
@@ -465,7 +478,7 @@ levels = {'tutorial':Level(0, [600, 600], [(1600, 300)]), 'level1':Level(1, [600
 for level in levels:
 	levels[level].load_map()
 
-player = Player(75, 125, 10, 28)
+player = Player(75, 125, 10, 28, 100)
 
 for enemy_pos in levels[player.level].enemy_pos:
 	enemies.append(Enemy(enemy_pos, 75, 125, 100, 1000, 1000))
@@ -505,6 +518,9 @@ def draw():
 	for particle in particles:
 		particle.draw()
 
+	for bullet in enemy_bullets:
+		bullet.draw()
+
 	for bullet in bullets:
 		bullet.draw()
 
@@ -534,7 +550,7 @@ while True:
 			mx, my = event.pos
 			slopex = mx - (player.rect.centerx - scroll[0] + 5)
 			slopey = my - (player.rect.centery - scroll[1] + 35)
-			bullets.append(Projectile(player.rect.centerx + 5, player.rect.centery + 35, 10, 14, 15, math.atan2(slopey, slopex), (0, 100, 255)))
+			bullets.append(Projectile(player.rect.centerx + 5, player.rect.centery + 35, 10, 14, 15, math.atan2(slopey, slopex), projectile_img))
 			shoot_sound.play()
 
 		if event.type == pygame.KEYDOWN:
@@ -562,10 +578,12 @@ while True:
 				player.vel = 10
 
 	if player.rect.y >= WINDOW_SIZE[1] + 300:
-		player.living = False		
+		player.die()
+	if player.health <= 0:
+		player.die()
 
 	for bullet in bullets:
-		if len(bullets) <= 20:
+		if len(bullets) <= 30:
 			bullet.update()
 			for enemy in enemies:
 				if bullet.rect.colliderect(enemy.rect):
@@ -573,7 +591,7 @@ while True:
 					enemy.health -= bullet.damage
 					enemy_hit_sound.play()
 					for i in range(8):
-						particles.append(Particle(bullet.x, bullet.y, [(50, 50, 50), (180, 30, 30), (180, 30, 30), (150, 150, 150)], -25, 25, -50, 0, 3, 10, 0.4, 0.2))
+						particles.append(Particle(bullet.x, bullet.y, [(50, 50, 50), (180, 30, 30), (180, 30, 30), (150, 150, 150), (100, 0, 0)], -25, 25, -50, 0, 3, 10, 0.4, 0.2))
 			if bullet.collision_types['top'] or bullet.collision_types['bottom'] or bullet.collision_types['right'] or bullet.collision_types['left']:
 				bullets.remove(bullet)
 				explosion_sound.play()
@@ -592,6 +610,33 @@ while True:
 		else:
 			bullets.remove(bullet)
 
+	for bullet in enemy_bullets:
+		if len(enemy_bullets) <= 30:
+			bullet.update()
+			if bullet.rect.colliderect(player.rect):
+				player.health -= bullet.damage
+				player_hit_sound.play()
+				for i in range(10):
+					particles.append(Particle(bullet.x, bullet.y, [(50, 50, 50), (180, 30, 30), (150, 150, 150), (94, 49, 91)], -25, 25, -50, 0, 3, 10, 0.4, 0.2))
+				enemy_bullets.remove(bullet)
+			if bullet.collision_types['top'] or bullet.collision_types['bottom'] or bullet.collision_types['right'] or bullet.collision_types['left']:
+				enemy_bullets.remove(bullet)
+				explosion_sound.play()
+				if bullet.collision_types['top']:
+					for i in range(23):
+						particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (100, 100, 100), (150, 54, 54)], -25, 25, 10, 60, 4, 15, 0.4, 0.2))
+				if bullet.collision_types['bottom']:
+					for i in range(23):
+						particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (100, 100, 100), (150, 54, 54)], -25, 25, -60, -10, 4, 15, 0.4, 0.2))
+				if bullet.collision_types['right']:
+					for i in range(23):
+						particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (100, 100, 100), (150, 54, 54)], -60, -10, -25, 25, 4, 15, 0.4, 0.2))
+				if bullet.collision_types['left']:
+					for i in range(23):
+						particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (100, 100, 100), (150, 54, 54)], 10, 60, -25, 25, 4, 15, 0.4, 0.2))
+		else:
+			enemy_bullets.remove(bullet)
+
 	if player.moving_right and player.collision_types['bottom']:
 		particles.append(Particle(player.rect.midbottom[0], player.rect.midbottom[1], [(60, 163, 112), (61, 111, 112), (50, 62, 79), (94, 49, 91), (140, 63, 93), (186, 97, 86)], -50, 0, 0, 5, 2, 8, 0.4, 0.2))
 	if player.moving_left and player.collision_types['bottom']:
@@ -607,14 +652,12 @@ while True:
 			enemies.remove(enemy)
 			enemy_death_sound.play()
 			for i in range(50):
-				particles.append(Particle(enemy.rect.centerx, enemy.rect.centery, [(140, 140, 140), (255, 50, 50), (255, 50, 50), (255, 50, 50), (50, 50, 50)], -40, 40, -80, 0, 4, 15, 0.4, 0.2))
+				particles.append(Particle(enemy.rect.centerx, enemy.rect.centery, [(140, 140, 140), (255, 50, 50), (255, 50, 50), (255, 50, 50), (50, 50, 50), (100, 0, 0)], -40, 40, -80, 0, 4, 15, 0.4, 0.2))
 		else:
 			enemy.update()
 
 	player.update()
 	gun.update()
 	draw()
-	if not player.living:
-		player.die()
 
 	# print(clock.get_fps())
