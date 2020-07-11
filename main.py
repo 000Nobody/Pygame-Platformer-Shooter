@@ -1,4 +1,4 @@
-import pygame, math, sys, os, random, time
+import pygame, math, sys, os, random
 from pygame.locals import *
 
 pygame.mixer.pre_init(44100, -16, 2, 2048)
@@ -10,13 +10,15 @@ pygame.display.set_caption('Shooter Platformer')
 WINDOW_SIZE = (1920, 1080)
 
 screen = pygame.display.set_mode(WINDOW_SIZE, FULLSCREEN | DOUBLEBUF)
-screen.set_alpha(None)
+
+display = pygame.Surface(WINDOW_SIZE)
 
 pygame.mouse.set_visible(False)
 
 scroll = [0,0]
 gravity_strength = 1.8
 bullets = []
+enemy_bullets = []
 tile_rects = []
 particles = []
 enemies = []
@@ -25,14 +27,18 @@ enemies = []
 cursor = pygame.transform.scale(pygame.image.load('data/images/cursor.png'), (32, 32)).convert()
 cursor.set_colorkey((255, 255, 255))
 
+bgback = pygame.image.load('data/images/backgrounds/BGBack.png').convert_alpha()
+bgfront = pygame.image.load('data/images/backgrounds/BGFront.png').convert_alpha()
+cloudsback = pygame.image.load('data/images/backgrounds/CloudsBack.png').convert_alpha()
+cloudsfront = pygame.image.load('data/images/backgrounds/CloudsFront.png').convert_alpha()
+
 grass = pygame.image.load('data/images/grass.png').convert()
 ground1 = pygame.image.load('data/images/ground1.png').convert()
 ground2 = pygame.image.load('data/images/ground2.png').convert()
 ground3 = pygame.image.load('data/images/ground3.png').convert()
 ground4 = pygame.image.load('data/images/ground4.png').convert()
 
-gun_img = pygame.image.load('data/images/gun.png').convert()
-gun_img.set_colorkey((255, 255, 255))
+gun_img = pygame.image.load('data/images/gun.png').convert_alpha()
 
 projectile_img = pygame.image.load('data/images/projectile.png').convert()
 projectile_img.set_colorkey((0, 0, 0))
@@ -43,8 +49,7 @@ def load_animations(actions, folder_name): #(['Running', 'Idle'], 'player_images
 		image_path = 'data/' + folder_name + '/' + action
 		animation_database.update({action:[]})
 		for image in os.listdir(image_path):
-			image_id = pygame.image.load(image_path + '/' + image).convert()
-			image_id.set_colorkey((0, 0, 0))
+			image_id = pygame.image.load(image_path + '/' + image).convert_alpha()
 			animation_database[action].append(pygame.transform.scale(image_id, (200, 200)))
 	return animation_database
 
@@ -53,9 +58,12 @@ death_sound = pygame.mixer.Sound('data/sounds/death.wav')
 jump_sound = pygame.mixer.Sound('data/sounds/jump.wav')
 shoot_sound = pygame.mixer.Sound('data/sounds/shoot.wav')
 explosion_sound = pygame.mixer.Sound('data/sounds/explosion.wav')
+enemy_hit_sound = pygame.mixer.Sound('data/sounds/enemy_hit.wav')
+enemy_death_sound = pygame.mixer.Sound('data/sounds/enemy_death.wav')
 jump_sound.set_volume(0.8)
 shoot_sound.set_volume(0.5)
 explosion_sound.set_volume(0.7)
+enemy_hit_sound.set_volume(0.7)
 
 pygame.mixer.music.load('data/sounds/bgmusic.wav')
 pygame.mixer.music.set_volume(0.6)
@@ -86,15 +94,15 @@ class Level():
 			x = 0
 			for tile in layer:
 				if tile == '1':
-					screen.blit(grass, (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
+					display.blit(grass, (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
 				if tile == '2':
-					screen.blit(ground1, (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
+					display.blit(ground1, (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
 				if tile == '3':
-					screen.blit(ground2, (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
+					display.blit(ground2, (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
 				if tile == '4':
-					screen.blit(ground3, (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
+					display.blit(ground3, (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
 				if tile == '5':
-					screen.blit(ground4, (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))	
+					display.blit(ground4, (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))	
 				if tile != '0':
 					tile_rects.append(pygame.Rect(int(x*self.tile_size[0]), int(y*self.tile_size[1]), self.tile_size[0], self.tile_size[1]))
 				x += 1
@@ -134,8 +142,8 @@ class Player():
 		if self.moving_left:
 			self.movement[0] = -self.vel
 		if self.jumping:
-			player.vertical_momentum = -player.jump_height
-			player.times_jumped += 1
+			self.vertical_momentum = -self.jump_height
+			self.times_jumped += 1
 			jump_sound.play()
 			for i in range(5):
 				particles.append(Particle(player.rect.midbottom[0], player.rect.midbottom[1], [(150, 150, 150), (255, 255, 255), (200, 200, 200)], -40, 40, -5, 0, 2, 10, 0.8, 0.2))
@@ -178,9 +186,13 @@ class Player():
 	def die(self):
 		pygame.mixer.music.fadeout(1000)
 		death_sound.play()
-		time.sleep(1)
-		self.rect.x = self.pos[0]
-		self.rect.y = self.pos[1]
+		self.rect.x = levels[self.level].player_pos[0]
+		self.rect.y = levels[self.level].player_pos[0]
+		enemies.clear()
+		bullets.clear()
+		particles.clear()
+		for enemy_pos in levels[self.level].enemy_pos:
+			enemies.append(Enemy(enemy_pos, 75, 125, 100, 1000, 1000))
 		pygame.mixer.music.play(-1)
 		self.living = True
 
@@ -206,12 +218,17 @@ class Player():
 
 		current_image = self.animation_database[self.action][self.frame//self.animation_speed]
 
-		screen.blit(pygame.transform.flip(current_image, self.flip, False), (int(self.rect.x - 60 - scroll[0]), int(self.rect.y - 40 - scroll[1])))
-		# pygame.draw.rect(screen, (0, 0, 0), self.rect, 1)
+		display.blit(pygame.transform.flip(current_image, self.flip, False), (int(self.rect.x - 60 - scroll[0]), int(self.rect.y - 40 - scroll[1])))
+		# pygame.draw.rect(display, (0, 0, 0), self.rect, 1)
 
 	def change_level(self, new_level):
+		enemies.clear()
+		particles.clear()
+		bullets.clear()
 		self.level = new_level
-		self.rect.topleft = levels[self.level].player_pos
+		self.rect.topleft = levels[new_level].player_pos
+		for enemy_pos in levels[new_level].enemy_pos:
+			enemies.append(Enemy(enemy_pos, 75, 125, 100, 1000, 1000))
 
 	def looking(self, mousepos):
 		if mousepos[0] <= self.rect.centerx - scroll[0]:
@@ -227,13 +244,15 @@ class Player():
 		self.frame = frame
 
 class Enemy():
-	def __init__(self, start_pos, width, height, vel, jump_height, pathfind_range):
+	def __init__(self, start_pos, width, height, health, pathfind_range, attack_range):
 		self.start_pos = start_pos
 		self.width = width
 		self.height = height
-		self.vel = vel
-		self.jump_height = jump_height
+		self.health = health
+		self.vel = 5
+		self.jump_height = 20
 		self.pathfind_range = pathfind_range
+		self.attack_range = attack_range
 		self.movement = [0, 0]
 		self.moving_right = False
 		self.moving_left = False
@@ -248,15 +267,18 @@ class Enemy():
 
 	def update(self):
 		self.move()
-		self.ai()
+		self.pathfind()
 		self.attack()
 		self.looking()
 
 	def move(self):
-		if self.moving_right == True:
+		if self.moving_right:
 			self.movement[0] = self.vel
-		if self.moving_left == True:
+		if self.moving_left:
 			self.movement[0] = -self.vel
+		if self.jumping:
+			self.vertical_momentum = -self.jump_height
+			self.jumping = False
 		self.movement[1] = self.vertical_momentum
 
 		self.collision_types = {'top':False,'bottom':False,'right':False,'left':False}
@@ -289,7 +311,6 @@ class Enemy():
 		if self.collision_types['top']:
 			self.vertical_momentum = 0
 
-
 	def draw(self):
 		if self.moving_right or self.moving_left:
 				self.change_action(self.action, 'Walking', self.frame)
@@ -307,7 +328,7 @@ class Enemy():
 
 		current_image = self.animation_database[self.action][self.frame//self.animation_speed]
 
-		screen.blit(pygame.transform.flip(current_image, self.flip, False), (int(self.rect.x - 60 - scroll[0]), int(self.rect.y - 40 - scroll[1])))
+		display.blit(pygame.transform.flip(current_image, self.flip, False), (int(self.rect.x - 60 - scroll[0]), int(self.rect.y - 40 - scroll[1])))
 
 	def change_action(self, current_action, new_action, frame):
 		if current_action != new_action:
@@ -317,13 +338,26 @@ class Enemy():
 		self.frame = frame
 
 	def attack(self):
-		print(math.sqrt(abs((self.rect.centerx - player.rect.centerx)**2 + (self.rect.centery - player.rect.centery))))
-		if math.sqrt(abs((self.rect.centerx - player.rect.centerx)**2 + (self.rect.centery - player.rect.centery))) <= self.pathfind_range:
+		if math.sqrt(abs((self.rect.centerx - player.rect.centerx)**2 + (self.rect.centery - player.rect.centery)**2)) <= self.attack_range:
 			pass
+		if self.rect.colliderect(player.rect):
+			player.die()
 
-	def ai(self):
-		if math.sqrt(abs((self.rect.centerx - player.rect.centerx)**2 + (self.rect.centery - player.rect.centery))) <= self.pathfind_range:
-			pass
+	def pathfind(self):
+		if math.sqrt(abs((self.rect.centerx - player.rect.centerx)**2 + (self.rect.centery - player.rect.centery)**2)) <= self.pathfind_range:
+			if 10 > abs(self.rect.x - player.rect.x) > 0:
+				self.vel = 0
+			else:
+				self.vel = 5
+				if self.rect.centerx > player.rect.centerx:
+					self.moving_left = True
+					self.moving_right = False
+				if self.rect.centerx < player.rect.centerx:
+					self.moving_right = True
+					self.moving_left = False
+		if self.collision_types['left'] or self.collision_types['right']:
+			self.jumping = True
+
 
 	def looking(self):
 		if self.moving_right:
@@ -352,14 +386,14 @@ class Gun():
 		if player.flip:
 			rotated_gun = pygame.transform.rotate(self.image, angle)
 			rect = rotated_gun.get_rect()
-			screen.blit(pygame.transform.flip(rotated_gun, False, False), (self.x - (rect.width/2), self.y - (rect.height/2)))
+			display.blit(pygame.transform.flip(rotated_gun, False, False), (self.x - (rect.width/2), self.y - (rect.height/2)))
 		if not player.flip:
 			rotated_gun = pygame.transform.rotate(self.image, -angle)
 			rect = rotated_gun.get_rect()
-			screen.blit(pygame.transform.flip(rotated_gun, False, True), (self.x - (rect.width/2), self.y - (rect.height/2)))
+			display.blit(pygame.transform.flip(rotated_gun, False, True), (self.x - (rect.width/2), self.y - (rect.height/2)))
 
 		self.gun_rect = pygame.Rect(self.x - (rect.width/2), self.y - (rect.height/2), self.image.get_width(), self.image.get_height())
-		# pygame.draw.rect(screen, (0, 0, 0), self.gun_rect, 1)
+		# pygame.draw.rect(display, (0, 0, 0), self.gun_rect, 1)
 
 class Projectile():
 	def __init__(self, x, y, radius, vel, damage, angle, color):
@@ -384,8 +418,8 @@ class Projectile():
 		global projectile_img
 		self.rect = pygame.Rect(self.x - self.radius, self.y - self.radius, self.radius * 2, self.radius * 2)
 		projectile_img = pygame.transform.scale(projectile_img, (self.radius * 2, self.radius * 2))
-		screen.blit(projectile_img, (int(self.x - scroll[0] - self.radius), int(self.y - scroll[1] - self.radius)))
-		# pygame.draw.rect(screen, (0, 0, 0), self.rect)
+		display.blit(projectile_img, (int(self.x - scroll[0] - self.radius), int(self.y - scroll[1] - self.radius)))
+		# pygame.draw.rect(display, (0, 0, 0), self.rect)
 
 	def collision_check(self, rects, tiles):
 		self.collision_types = {'top':False,'bottom':False,'right':False,'left':False}
@@ -425,16 +459,16 @@ class Particle():
 		self.yvel += self.gravity
 
 	def draw(self):
-		pygame.draw.circle(screen, self.color, (int(self.x - scroll[0]), int(self.y - scroll[1])), int(self.radius))
+		pygame.draw.circle(display, self.color, (int(self.x - scroll[0]), int(self.y - scroll[1])), int(self.radius))
 
-levels = {'tutorial':Level(0, [600, 600], [(800, 300), (1000, 300)]), 'level1':Level(1, [600, 600], [800, 300])}
+levels = {'tutorial':Level(0, [600, 600], [(1600, 300)]), 'level1':Level(1, [600, 600], [800, 300])}
 for level in levels:
 	levels[level].load_map()
 
 player = Player(75, 125, 10, 28)
 
 for enemy_pos in levels[player.level].enemy_pos:
-	enemies.append(Enemy(enemy_pos, 75, 125, 10, 28, 600))
+	enemies.append(Enemy(enemy_pos, 75, 125, 100, 1000, 1000))
 
 gun = Gun(gun_img)
 
@@ -450,21 +484,26 @@ def collision_check(rect, tiles):
 def update_cursor(mousepos):
 	cursor_rect = cursor.get_rect()
 	cursor_rect.center = mousepos
-	screen.blit(cursor, cursor_rect)
+	display.blit(cursor, cursor_rect)
 
 def draw():
 
-	screen.fill((200,255,255))
+	display.fill((200,255,255))
+
+	# display.blit(cloudsback, (0 - scroll[0]*0.8 - 500, 0 - scroll[1]*0.8 - 200))
+	# display.blit(cloudsfront, (0 - scroll[0]*0.6 - 500, 0 - scroll[1]*0.6 - 200))
+	# display.blit(bgback, (0 - scroll[0]*0.4 - 500, 0 - scroll[1]*0.4 - 200))
+	# display.blit(bgfront, (0 - scroll[0]*0.2 - 500, 0 - scroll[1]*0.2 - 200))
 
 	levels[player.level].draw()
-
-	for particle in particles:
-		particle.draw()
 
 	for enemy in enemies:
 		enemy.draw()
 
 	player.draw()
+
+	for particle in particles:
+		particle.draw()
 
 	for bullet in bullets:
 		bullet.draw()
@@ -472,6 +511,8 @@ def draw():
 	gun.draw(gun.get_angle(pygame.mouse.get_pos()))
 
 	update_cursor(pygame.mouse.get_pos())
+
+	screen.blit(display, (0, 0))
 
 	pygame.display.update()
 
@@ -493,7 +534,7 @@ while True:
 			mx, my = event.pos
 			slopex = mx - (player.rect.centerx - scroll[0] + 5)
 			slopey = my - (player.rect.centery - scroll[1] + 35)
-			bullets.append(Projectile(player.rect.centerx + 5, player.rect.centery + 35, 10, 14, 10, math.atan2(slopey, slopex), (0, 100, 255)))
+			bullets.append(Projectile(player.rect.centerx + 5, player.rect.centery + 35, 10, 14, 15, math.atan2(slopey, slopex), (0, 100, 255)))
 			shoot_sound.play()
 
 		if event.type == pygame.KEYDOWN:
@@ -526,6 +567,13 @@ while True:
 	for bullet in bullets:
 		if len(bullets) <= 20:
 			bullet.update()
+			for enemy in enemies:
+				if bullet.rect.colliderect(enemy.rect):
+					bullets.remove(bullet)
+					enemy.health -= bullet.damage
+					enemy_hit_sound.play()
+					for i in range(8):
+						particles.append(Particle(bullet.x, bullet.y, [(50, 50, 50), (180, 30, 30), (180, 30, 30), (150, 150, 150)], -25, 25, -50, 0, 3, 10, 0.4, 0.2))
 			if bullet.collision_types['top'] or bullet.collision_types['bottom'] or bullet.collision_types['right'] or bullet.collision_types['left']:
 				bullets.remove(bullet)
 				explosion_sound.play()
@@ -555,7 +603,13 @@ while True:
 			particles.remove(particle)
 
 	for enemy in enemies:
-		enemy.update()
+		if enemy.health <= 0 or enemy.rect.y >= 1080:
+			enemies.remove(enemy)
+			enemy_death_sound.play()
+			for i in range(50):
+				particles.append(Particle(enemy.rect.centerx, enemy.rect.centery, [(140, 140, 140), (255, 50, 50), (255, 50, 50), (255, 50, 50), (50, 50, 50)], -40, 40, -80, 0, 4, 15, 0.4, 0.2))
+		else:
+			enemy.update()
 
 	player.update()
 	gun.update()
