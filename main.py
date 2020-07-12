@@ -158,25 +158,7 @@ class Player():
 			self.movement = [0, 0]
 		self.movement[1] = self.vertical_momentum
 
-		self.collision_types = {'top':False,'bottom':False,'right':False,'left':False}
-		self.rect.x += self.movement[0]
-		hit_list = collision_check(self.rect,tile_rects)
-		for tile in hit_list:
-			if self.movement[0] > 0:
-				self.rect.right = tile.left
-				self.collision_types['right'] = True
-			elif self.movement[0] < 0:
-				self.rect.left = tile.right
-				self.collision_types['left'] = True
-		self.rect.y += self.movement[1]
-		hit_list = collision_check(self.rect,tile_rects)
-		for tile in hit_list:
-			if self.movement[1] > 0:
-				self.rect.bottom = tile.top
-				self.collision_types['bottom'] = True
-			elif self.movement[1] < 0:
-				self.rect.top = tile.bottom
-				self.collision_types['top'] = True
+		self.rect, self.collision_types = move(self.rect, tile_rects, self.movement)
 
 		self.vertical_momentum += gravity_strength
 		if self.vertical_momentum > 50:
@@ -198,7 +180,7 @@ class Player():
 		particles.clear()
 		enemy_bullets.clear()
 		for enemy_pos in levels[self.level].enemy_pos:
-			enemies.append(Enemy(enemy_pos, 75, 125, 100, 1000, 1000))
+			enemies.append(Enemy(enemy_id_counter, enemy_pos, 75, 125, 100, 1000, 1000))
 		pygame.mixer.music.play(-1)
 		self.health = 100
 		self.living = True
@@ -236,7 +218,7 @@ class Player():
 		self.level = new_level
 		self.rect.topleft = levels[new_level].player_pos
 		for enemy_pos in levels[new_level].enemy_pos:
-			enemies.append(Enemy(enemy_pos, 75, 125, 100, 1000, 1000))
+			enemies.append(Enemy(enemy_id_counter, enemy_pos, 75, 125, 100, 1000, 1000))
 
 	def looking(self, mousepos):
 		if mousepos[0] <= self.rect.centerx - scroll[0]:
@@ -252,7 +234,8 @@ class Player():
 		self.frame = frame
 
 class Enemy():
-	def __init__(self, start_pos, width, height, health, pathfind_range, attack_range):
+	def __init__(self, id, start_pos, width, height, health, pathfind_range, attack_range):
+		self.id = id
 		self.start_pos = start_pos
 		self.width = width
 		self.height = height
@@ -290,25 +273,7 @@ class Enemy():
 			self.jumping = False
 		self.movement[1] = self.vertical_momentum
 
-		self.collision_types = {'top':False,'bottom':False,'right':False,'left':False}
-		self.rect.x += self.movement[0]
-		hit_list = collision_check(self.rect,tile_rects)
-		for tile in hit_list:
-			if self.movement[0] > 0:
-				self.rect.right = tile.left
-				self.collision_types['right'] = True
-			elif self.movement[0] < 0:
-				self.rect.left = tile.right
-				self.collision_types['left'] = True
-		self.rect.y += self.movement[1]
-		hit_list = collision_check(self.rect,tile_rects)
-		for tile in hit_list:
-			if self.movement[1] > 0:
-				self.rect.bottom = tile.top
-				self.collision_types['bottom'] = True
-			elif self.movement[1] < 0:
-				self.rect.top = tile.bottom
-				self.collision_types['top'] = True
+		self.rect, self.collision_types = move(self.rect, tile_rects + [enemy.rect for enemy in enemies if enemy.id != self.id], self.movement)
 
 		self.vertical_momentum += gravity_strength
 		if self.vertical_momentum > 50:
@@ -370,8 +335,9 @@ class Enemy():
 					self.moving_right = True
 					self.moving_left = False
 		if self.collision_types['left'] or self.collision_types['right']:
-			self.jumping = True
-
+			for enemy in enemies:
+				if not self.rect.colliderect(enemy.rect):
+					self.jumping = True
 
 	def looking(self):
 		if self.moving_right:
@@ -429,7 +395,6 @@ class Projectile():
 		self.y += math.sin(self.angle) * self.vel
 
 	def draw(self):
-		global projectile_img
 		self.rect = pygame.Rect(self.x - self.radius, self.y - self.radius, self.radius * 2, self.radius * 2)
 		self.image = pygame.transform.scale(self.image, (self.radius * 2, self.radius * 2))
 		display.blit(self.image, (int(self.x - scroll[0] - self.radius), int(self.y - scroll[1] - self.radius)))
@@ -476,14 +441,16 @@ class Particle():
 		pygame.draw.circle(display, self.color, (int(self.x - scroll[0]), int(self.y - scroll[1])), int(self.radius))
 
 # Create classes
-levels = {'tutorial':Level(0, [600, 600], [(1600, 300)]), 'level1':Level(1, [600, 600], [800, 300])}
+levels = {'tutorial':Level(0, [600, 600], [(1600, 300), (2000, 400)]), 'level1':Level(1, [600, 600], [800, 300])}
 for level in levels:
 	levels[level].load_map()
 
-player = Player(75, 125, 10, 28, 100)
+player = Player(75, 125, 10, 28, 1000000000000)
 
+enemy_id_counter = 0
 for enemy_pos in levels[player.level].enemy_pos:
-	enemies.append(Enemy(enemy_pos, 75, 125, 100, 1000, 1000))
+	enemy_id_counter += 1
+	enemies.append(Enemy(enemy_id_counter, enemy_pos, 75, 125, 100, 1000, 1000))
 
 gun = Gun(gun_img)
 
@@ -496,13 +463,35 @@ def collision_check(rect, tiles):
 				hit_list.append(tile)
 	return hit_list
 
+def move(rect, tiles, movement):
+	collision_types = {'top':False,'bottom':False,'right':False,'left':False}
+	rect.x += movement[0]
+	hit_list = collision_check(rect, tile_rects)
+	for tile in hit_list:
+		if movement[0] > 0:
+			rect.right = tile.left
+			collision_types['right'] = True
+		elif movement[0] < 0:
+			rect.left = tile.right
+			collision_types['left'] = True
+	rect.y += movement[1]
+	hit_list = collision_check(rect, tile_rects)
+	for tile in hit_list:
+		if movement[1] > 0:
+			rect.bottom = tile.top
+			collision_types['bottom'] = True
+		elif movement[1] < 0:
+			rect.top = tile.bottom
+			collision_types['top'] = True
+
+	return rect, collision_types
+
 def update_cursor(mousepos):
 	cursor_rect = cursor.get_rect()
 	cursor_rect.center = mousepos
 	display.blit(cursor, cursor_rect)
 
 def draw():
-
 	display.fill((200,255,255))
 
 	# display.blit(cloudsback, (0 - scroll[0]*0.8 - 500, 0 - scroll[1]*0.8 - 200))
@@ -592,13 +581,15 @@ while True:
 			bullet.update()
 			for enemy in enemies:
 				if bullet.rect.colliderect(enemy.rect):
-					bullets.remove(bullet)
+					if bullet in bullets:
+						bullets.remove(bullet)
 					enemy.health -= bullet.damage
 					enemy_hit_sound.play()
 					for i in range(8):
 						particles.append(Particle(bullet.x, bullet.y, [(50, 50, 50), (180, 30, 30), (180, 30, 30), (150, 150, 150), (100, 0, 0)], -25, 25, -50, 0, 3, 10, 0.4, 0.2))
 			if bullet.collision_types['top'] or bullet.collision_types['bottom'] or bullet.collision_types['right'] or bullet.collision_types['left']:
-				bullets.remove(bullet)
+				if bullet in bullets:
+					bullets.remove(bullet)
 				explosion_sound.play()
 				if bullet.collision_types['top']:
 					for i in range(20):
@@ -620,13 +611,15 @@ while True:
 		if len(enemy_bullets) <= 30:
 			bullet.update()
 			if bullet.rect.colliderect(player.rect):
+				if bullet in enemy_bullets:
+					enemy_bullets.remove(bullet)
 				player.health -= bullet.damage
 				player_hit_sound.play()
-				for i in range(10):
-					particles.append(Particle(bullet.x, bullet.y, [(50, 50, 50), (180, 30, 30), (150, 150, 150), (94, 49, 91)], -25, 25, -50, 0, 3, 10, 0.4, 0.2))
-				enemy_bullets.remove(bullet)
-			if bullet.collision_types['top'] or bullet.collision_types['bottom'] or bullet.collision_types['right'] or bullet.collision_types['left']:
-				enemy_bullets.remove(bullet)
+				for i in range(20):
+					particles.append(Particle(bullet.x, bullet.y, [(50, 50, 50), (180, 30, 30), (150, 150, 150), (94, 49, 91)], -25, 25, -50, 0, 4, 15, 0.4, 0.2))
+			if bullet.collision_types['top'] or bullet.collision_types['bottom'] or bullet.collision_types['right'] or bullet.collision_types['left'] and not bullet.rect.colliderect(player.rect):
+				if bullet in enemy_bullets:
+					enemy_bullets.remove(bullet)
 				explosion_sound.play()
 				if bullet.collision_types['top']:
 					for i in range(23):
@@ -667,4 +660,4 @@ while True:
 	gun.update()
 	draw()
 
-	print(clock.get_fps())
+	# print(clock.get_fps())
