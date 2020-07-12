@@ -57,6 +57,9 @@ def load_animations(actions, folder_name): #(['Running', 'Idle'], 'player_images
 			animation_database[action].append(pygame.transform.scale(image_id, (200, 200)))
 	return animation_database
 
+player_animations = load_animations(['Running', 'Idle', 'Walking'], 'player_images')
+enemy_animations = load_animations(['Idle', 'Walking'], 'enemy_images')
+
 # Load sounds
 death_sound = pygame.mixer.Sound('data/sounds/death.wav')
 jump_sound = pygame.mixer.Sound('data/sounds/jump.wav')
@@ -132,7 +135,7 @@ class Player():
 		self.animation_speed = 0
 		self.level = 'tutorial'
 		self.times_jumped = 0
-		self.animation_database = load_animations(['Running', 'Idle', 'Walking'], 'player_images')
+		self.animation_database = player_animations
 		self.rect = pygame.Rect(int(levels[self.level].player_pos[0]), int(levels[self.level].player_pos[1]), self.width, self.height)
 
 	def update(self):
@@ -254,7 +257,7 @@ class Enemy():
 		self.animation_speed = 0
 		self.frame = 0
 		self.action = 'Idle'
-		self.animation_database = load_animations(['Running', 'Idle', 'Walking'], 'enemy_images')
+		self.animation_database = enemy_animations
 		self.rect = pygame.Rect(int(self.start_pos[0]), int(self.start_pos[1]), self.width, self.height)
 
 	def update(self):
