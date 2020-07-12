@@ -445,7 +445,7 @@ levels = {'tutorial':Level(0, [600, 600], [(1600, 300), (2000, 400)]), 'level1':
 for level in levels:
 	levels[level].load_map()
 
-player = Player(75, 125, 10, 28, 1000000000000)
+player = Player(75, 125, 10, 28, 100)
 
 enemy_id_counter = 0
 for enemy_pos in levels[player.level].enemy_pos:
