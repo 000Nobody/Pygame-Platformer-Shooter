@@ -161,7 +161,7 @@ class Player():
 			self.movement = [0, 0]
 		self.movement[1] = self.vertical_momentum
 
-		self.rect, self.collision_types = move(self.rect, tile_rects, self.movement)
+		self.rect, self.collision_types, self.hit_list = move(self.rect, tile_rects, self.movement)
 
 		self.vertical_momentum += gravity_strength
 		if self.vertical_momentum > 50:
@@ -182,8 +182,10 @@ class Player():
 		bullets.clear()
 		particles.clear()
 		enemy_bullets.clear()
+		enemy_id_counter = 0
 		for enemy_pos in levels[self.level].enemy_pos:
 			enemies.append(Enemy(enemy_id_counter, enemy_pos, 75, 125, 100, 1000, 1000))
+			enemy_id_counter += 1
 		pygame.mixer.music.play(-1)
 		self.health = 100
 		self.living = True
@@ -276,7 +278,7 @@ class Enemy():
 			self.jumping = False
 		self.movement[1] = self.vertical_momentum
 
-		self.rect, self.collision_types = move(self.rect, tile_rects + [enemy.rect for enemy in enemies if enemy.id != self.id], self.movement)
+		self.rect, self.collision_types, self.hit_list = move(self.rect, tile_rects + [enemy.rect for enemy in enemies if enemy.id != self.id], self.movement)
 
 		self.vertical_momentum += gravity_strength
 		if self.vertical_momentum > 50:
@@ -337,10 +339,10 @@ class Enemy():
 				if self.rect.centerx < player.rect.centerx:
 					self.moving_right = True
 					self.moving_left = False
-		if self.collision_types['left'] or self.collision_types['right']:
-			for enemy in enemies:
-				if not self.rect.colliderect(enemy.rect):
-					self.jumping = True
+
+		if [enemy.rect for enemy in enemies if enemy.id != self.id] not in self.hit_list:
+			if self.collision_types['left'] or self.collision_types['right']:
+				self.jumping = True
 
 	def looking(self):
 		if self.moving_right:
@@ -452,8 +454,8 @@ player = Player(75, 125, 10, 28, 100)
 
 enemy_id_counter = 0
 for enemy_pos in levels[player.level].enemy_pos:
-	enemy_id_counter += 1
 	enemies.append(Enemy(enemy_id_counter, enemy_pos, 75, 125, 100, 1000, 1000))
+	enemy_id_counter += 1
 
 gun = Gun(gun_img)
 
@@ -469,7 +471,7 @@ def collision_check(rect, tiles):
 def move(rect, tiles, movement):
 	collision_types = {'top':False,'bottom':False,'right':False,'left':False}
 	rect.x += movement[0]
-	hit_list = collision_check(rect, tile_rects)
+	hit_list = collision_check(rect, tiles)
 	for tile in hit_list:
 		if movement[0] > 0:
 			rect.right = tile.left
@@ -478,7 +480,7 @@ def move(rect, tiles, movement):
 			rect.left = tile.right
 			collision_types['left'] = True
 	rect.y += movement[1]
-	hit_list = collision_check(rect, tile_rects)
+	hit_list = collision_check(rect, tiles)
 	for tile in hit_list:
 		if movement[1] > 0:
 			rect.bottom = tile.top
@@ -487,7 +489,7 @@ def move(rect, tiles, movement):
 			rect.top = tile.bottom
 			collision_types['top'] = True
 
-	return rect, collision_types
+	return rect, collision_types, hit_list
 
 def update_cursor(mousepos):
 	cursor_rect = cursor.get_rect()
@@ -541,12 +543,13 @@ while True:
 			pygame.quit()
 			sys.exit()
 
-		if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and len(bullets) <= 20:
-			mx, my = event.pos
-			slopex = mx - (player.rect.centerx - scroll[0] + 5)
-			slopey = my - (player.rect.centery - scroll[1] + 35)
-			bullets.append(Projectile(player.rect.centerx + 5, player.rect.centery + 35, 10, 14, 15, math.atan2(slopey, slopex), projectile_img))
-			shoot_sound.play()
+		if event.type == pygame.MOUSEBUTTONDOWN:
+			if event.button == 1 and len(bullets) <= 20:
+				mx, my = event.pos
+				slopex = mx - (player.rect.centerx - scroll[0] + 5)
+				slopey = my - (player.rect.centery - scroll[1] + 35)
+				bullets.append(Projectile(player.rect.centerx + 5, player.rect.centery + 35, 10, 14, 15, math.atan2(slopey, slopex), projectile_img))
+				shoot_sound.play()
 
 		if event.type == pygame.KEYDOWN:
 			if event.key == pygame.K_d:
@@ -580,7 +583,7 @@ while True:
 
 # player bullets
 	for bullet in bullets:
-		if len(bullets) <= 30:
+		if len(bullets) <= 20:
 			bullet.update()
 			for enemy in enemies:
 				if bullet.rect.colliderect(enemy.rect):
@@ -611,7 +614,7 @@ while True:
 
 # enemy bullets
 	for bullet in enemy_bullets:
-		if len(enemy_bullets) <= 30:
+		if len(enemy_bullets) <= 40:
 			bullet.update()
 			if bullet.rect.colliderect(player.rect):
 				if bullet in enemy_bullets:
