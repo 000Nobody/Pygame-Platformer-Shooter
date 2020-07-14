@@ -16,6 +16,7 @@ display = pygame.Surface(WINDOW_SIZE)
 pygame.mouse.set_visible(False)
 
 # Create variables
+timer = 0
 scroll = [0,0]
 gravity_strength = 1.8
 bullets = []
@@ -84,6 +85,9 @@ enemy_hit_sound.set_volume(0.7)
 
 pygame.mixer.music.load('data/sounds/bgmusic.wav')
 pygame.mixer.music.set_volume(0.6)
+
+# Load Fonts
+pixel_font = pygame.font.Font("data/fonts/pixel_font.ttf", 30)
 
 #Classes
 class Level():
@@ -158,7 +162,7 @@ class Player():
 		self.frame = 0
 		self.action = 'Idle'
 		self.animation_speed = 0
-		self.level = 'tutorial'
+		self.level = 'Tutorial'
 		self.times_jumped = 0
 		self.animation_database = player_animations
 		self.rect = pygame.Rect(int(levels[self.level].player_pos[0]), int(levels[self.level].player_pos[1]), self.width, self.height)
@@ -245,6 +249,8 @@ class Player():
 		particles.clear()
 		bullets.clear()
 		enemy_bullets.clear()
+		timer = 0
+		self.health = 100
 		self.level = new_level
 		self.rect.topleft = levels[new_level].player_pos
 		for enemy_pos in levels[new_level].enemy_pos:
@@ -471,7 +477,7 @@ class Particle():
 		pygame.draw.circle(display, self.color, (int(self.x - scroll[0]), int(self.y - scroll[1])), int(self.radius))
 
 # Create classes
-levels = {'tutorial':Level('map0', [600, 600], [(2965, 390)]), 'level1':Level('map1', [600, 600], [800, 300])}
+levels = {'Tutorial':Level('map0', [600, 600], [(2965, 390)]), 'Level 1':Level('map1', [600, 600], [(1500, 500)])}
 for level in levels:
 	levels[level].load_map()
 
@@ -547,6 +553,12 @@ def draw():
 
 	gun.draw(gun.get_angle(pygame.mouse.get_pos()))
 
+	level_text = pixel_font.render(player.level, 1, (0, 0, 0))
+	time_text = pixel_font.render(str((pygame.time.get_ticks()//10)/100), 100, (0, 0, 0))
+
+	display.blit(level_text, (30, 30))
+	display.blit(time_text, (30, 60))
+
 	update_cursor(pygame.mouse.get_pos())
 
 	screen.blit(display, (0, 0))
@@ -558,6 +570,7 @@ pygame.mixer.music.play(-1)
 # Main Loop
 while True:
 	clock.tick(60)
+	timer += 1/(clock.get_fps() + 0.01)
 
 	scroll[0] += int((player.rect.x - scroll[0] - (WINDOW_SIZE[0]/2 + player.width/2))/20)
 	scroll[1] += int((player.rect.y - scroll[1] - (WINDOW_SIZE[1]/2 + player.height/2))/20)
@@ -605,6 +618,11 @@ while True:
 		player.die()
 	if player.health <= 0:
 		player.die()
+
+# level-change conditions
+	if player.level == 'Tutorial':
+		if enemies == []:
+			player.change_level('Level 1')
 
 # player bullets
 	for bullet in bullets:
