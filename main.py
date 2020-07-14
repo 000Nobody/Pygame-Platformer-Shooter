@@ -16,7 +16,6 @@ display = pygame.Surface(WINDOW_SIZE)
 pygame.mouse.set_visible(False)
 
 # Create variables
-timer = 0
 scroll = [0,0]
 gravity_strength = 1.8
 bullets = []
@@ -97,6 +96,7 @@ class Level():
 		self.tile_size = (64, 64)
 		self.map_name = map_name
 		self.path = 'data/maps/{}.txt'.format(self.map_name)
+		self.timer = 0
 
 	def load_map(self):
 		self.map = []
@@ -554,7 +554,7 @@ def draw():
 	gun.draw(gun.get_angle(pygame.mouse.get_pos()))
 
 	level_text = pixel_font.render(player.level, 1, (0, 0, 0))
-	time_text = pixel_font.render(str((pygame.time.get_ticks()//10)/100), 100, (0, 0, 0))
+	time_text = pixel_font.render(str(round(levels[player.level].timer, 2)), 100, (0, 0, 0))
 
 	display.blit(level_text, (30, 30))
 	display.blit(time_text, (30, 60))
@@ -570,7 +570,8 @@ pygame.mixer.music.play(-1)
 # Main Loop
 while True:
 	clock.tick(60)
-	timer += 1/(clock.get_fps() + 0.01)
+	if clock.get_fps() > 0:
+		levels[player.level].timer += 1/(clock.get_fps())
 
 	scroll[0] += int((player.rect.x - scroll[0] - (WINDOW_SIZE[0]/2 + player.width/2))/20)
 	scroll[1] += int((player.rect.y - scroll[1] - (WINDOW_SIZE[1]/2 + player.height/2))/20)
