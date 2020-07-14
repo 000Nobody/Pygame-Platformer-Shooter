@@ -33,11 +33,20 @@ bgfront = pygame.image.load('data/images/backgrounds/BGFront.png').convert_alpha
 cloudsback = pygame.image.load('data/images/backgrounds/CloudsBack.png').convert_alpha()
 cloudsfront = pygame.image.load('data/images/backgrounds/CloudsFront.png').convert_alpha()
 
-grass = pygame.image.load('data/images/grass.png').convert()
-ground1 = pygame.image.load('data/images/ground1.png').convert()
-ground2 = pygame.image.load('data/images/ground2.png').convert()
-ground3 = pygame.image.load('data/images/ground3.png').convert()
-ground4 = pygame.image.load('data/images/ground4.png').convert()
+grass = pygame.image.load('data/images/tiles/grass.png').convert()
+dirt = pygame.image.load('data/images/tiles/dirt.png').convert()
+middle_platform = pygame.image.load('data/images/tiles/platform_middle.png').convert_alpha()
+left_edge_platform = pygame.image.load('data/images/tiles/platform_edge.png').convert_alpha()
+right_edge_platform = pygame.transform.flip(pygame.image.load('data/images/tiles/platform_edge.png').convert_alpha(), True, False)
+left_transition_dirt = pygame.image.load('data/images/tiles/transition_dirt.png').convert()
+right_transition_dirt = pygame.transform.flip(pygame.image.load('data/images/tiles/transition_dirt.png').convert(), True, False)
+left_transition_grass = pygame.image.load('data/images/tiles/transition_grass.png').convert()
+right_transition_grass = pygame.transform.flip(pygame.image.load('data/images/tiles/transition_grass.png').convert(), True, False)
+left_edge_dirt = pygame.image.load('data/images/tiles/edge_dirt.png').convert_alpha()
+right_edge_dirt = pygame.transform.flip(pygame.image.load('data/images/tiles/edge_dirt.png').convert_alpha(), True, False)
+left_edge_grass = pygame.image.load('data/images/tiles/edge_grass.png').convert_alpha()
+right_edge_grass = pygame.transform.flip(pygame.image.load('data/images/tiles/edge_grass.png').convert_alpha(), True, False)
+
 
 gun_img = pygame.image.load('data/images/gun.png').convert_alpha()
 
@@ -78,12 +87,12 @@ pygame.mixer.music.set_volume(0.6)
 
 #Classes
 class Level():
-	def __init__(self, id, player_pos, enemy_pos):
+	def __init__(self, map_name, player_pos, enemy_pos):
 		self.player_pos = player_pos
 		self.enemy_pos = enemy_pos
 		self.tile_size = (64, 64)
-		self.id = id
-		self.path = 'data/maps/map{0}.txt'.format(self.id)
+		self.map_name = map_name
+		self.path = 'data/maps/{}.txt'.format(self.map_name)
 
 	def load_map(self):
 		self.map = []
@@ -102,15 +111,31 @@ class Level():
 			x = 0
 			for tile in layer:
 				if tile == '1':
-					display.blit(grass, (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
+					display.blit(pygame.transform.scale(grass, (self.tile_size[0], self.tile_size[1])), (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
 				if tile == '2':
-					display.blit(ground1, (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
+					display.blit(pygame.transform.scale(dirt, (self.tile_size[0], self.tile_size[1])), (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
 				if tile == '3':
-					display.blit(ground2, (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
+					display.blit(pygame.transform.scale(left_edge_dirt, (self.tile_size[0], self.tile_size[1])), (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
 				if tile == '4':
-					display.blit(ground3, (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
+					display.blit(pygame.transform.scale(right_edge_dirt, (self.tile_size[0], self.tile_size[1])), (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
 				if tile == '5':
-					display.blit(ground4, (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))	
+					display.blit(pygame.transform.scale(left_edge_grass, (self.tile_size[0], self.tile_size[1])), (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
+				if tile == '6':
+					display.blit(pygame.transform.scale(right_edge_grass, (self.tile_size[0], self.tile_size[1])), (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
+				if tile == '7':
+					display.blit(pygame.transform.scale(left_edge_platform, (self.tile_size[0], self.tile_size[1])), (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
+				if tile == '8':
+					display.blit(pygame.transform.scale(middle_platform, (self.tile_size[0], self.tile_size[1])), (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
+				if tile == '9':
+					display.blit(pygame.transform.scale(right_edge_platform, (self.tile_size[0], self.tile_size[1])), (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
+				if tile == 'a':
+					display.blit(pygame.transform.scale(left_transition_dirt, (self.tile_size[0], self.tile_size[1])), (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
+				if tile == 'b':
+					display.blit(pygame.transform.scale(right_transition_dirt, (self.tile_size[0], self.tile_size[1])), (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))	
+				if tile == 'c':
+					display.blit(pygame.transform.scale(left_transition_grass, (self.tile_size[0], self.tile_size[1])), (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))			
+				if tile == 'd':
+					display.blit(pygame.transform.scale(right_transition_grass, (self.tile_size[0], self.tile_size[1])), (x*self.tile_size[0] - scroll[0], y*self.tile_size[1] - scroll[1]))
 				if tile != '0':
 					tile_rects.append(pygame.Rect(int(x*self.tile_size[0]), int(y*self.tile_size[1]), self.tile_size[0], self.tile_size[1]))
 				x += 1
@@ -340,7 +365,7 @@ class Enemy():
 					self.moving_right = True
 					self.moving_left = False
 
-		if [enemy.rect for enemy in enemies if enemy.id != self.id] not in self.hit_list:
+		if not [enemy for enemy in enemies if enemy.id != self.id and enemy.rect in self.hit_list]:
 			if self.collision_types['left'] or self.collision_types['right']:
 				self.jumping = True
 
@@ -446,7 +471,7 @@ class Particle():
 		pygame.draw.circle(display, self.color, (int(self.x - scroll[0]), int(self.y - scroll[1])), int(self.radius))
 
 # Create classes
-levels = {'tutorial':Level(0, [600, 600], [(1600, 300), (2000, 400)]), 'level1':Level(1, [600, 600], [800, 300])}
+levels = {'tutorial':Level('map0', [600, 600], [(2965, 390)]), 'level1':Level('map1', [600, 600], [800, 300])}
 for level in levels:
 	levels[level].load_map()
 
