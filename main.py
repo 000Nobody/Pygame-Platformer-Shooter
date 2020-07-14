@@ -222,8 +222,7 @@ class Player():
     def die(self):
         pygame.mixer.music.fadeout(1000)
         death_sound.play()
-        self.rect.x = levels[self.level].player_pos[0]
-        self.rect.y = levels[self.level].player_pos[0]
+        self.rect.topleft = levels[self.level].player_pos
         enemies.clear()
         bullets.clear()
         particles.clear()
@@ -495,7 +494,7 @@ class Particle():
         pygame.draw.circle(display, self.color, (int(self.x - scroll[0]), int(self.y - scroll[1])), int(self.radius))
 
 # Create classes
-levels = {'Tutorial':Level('map0', (600, 600), [(2940, 260)], 1400), 'Level 1':Level('map1', (600, 880), [(255, 445), (1695, -130), (3925, 380), (3915, 0)], 1900)}
+levels = {'Tutorial':Level('map0', (600, 490), [(2940, 250)], 1400), 'Level 1':Level('map1', (600, 800), [(255, 445), (1695, -130), (3925, 380), (3915, 0)], 1900)}
 for level in levels:
     levels[level].load_map()
 
