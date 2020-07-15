@@ -1,4 +1,4 @@
-import pygame, math, os, random, numpy, sys, ctypes
+import pygame, math, os, random, numpy, sys, pyautogui
 from pygame.locals import *
 
 pygame.mixer.pre_init(44100, -16, 2, 2048)
@@ -7,8 +7,7 @@ clock = pygame.time.Clock()
 
 pygame.display.set_caption('Shooter Platformer')
 
-user32 = ctypes.windll.user32
-WINDOW_SIZE = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+WINDOW_SIZE = pyautogui.size() 
 
 screen = pygame.display.set_mode(WINDOW_SIZE, FULLSCREEN | DOUBLEBUF)
 
