@@ -7,7 +7,8 @@ clock = pygame.time.Clock()
 
 pygame.display.set_caption('Shooter Platformer')
 
-WINDOW_SIZE = pyautogui.size() 
+infoObject = pygame.display.Info()
+WINDOW_SIZE = (infoObject.current_w, infoObject.current_h)
 
 screen = pygame.display.set_mode(WINDOW_SIZE, FULLSCREEN | DOUBLEBUF)
 
