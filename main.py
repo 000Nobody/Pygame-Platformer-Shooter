@@ -1,4 +1,4 @@
-import pygame, math, sys, os, random
+import pygame, math, sys, os, random, pyautogui
 from pygame.locals import *
 
 pygame.mixer.pre_init(44100, -16, 2, 2048)
@@ -7,7 +7,7 @@ clock = pygame.time.Clock()
 
 pygame.display.set_caption('Shooter Platformer')
 
-WINDOW_SIZE = (1920, 1080)
+WINDOW_SIZE = pyautogui.size()
 
 screen = pygame.display.set_mode(WINDOW_SIZE, FULLSCREEN | DOUBLEBUF)
 
@@ -729,6 +729,3 @@ while True:
     player.update()
     gun.update()
     draw()
-
-    print(clock.get_fps())
-    print(player.rect)
