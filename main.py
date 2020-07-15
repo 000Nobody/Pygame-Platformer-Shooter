@@ -1,4 +1,4 @@
-import pygame, math, sys, os, random, pyautogui
+import pygame, math, os, random, numpy, sys, ctypes
 from pygame.locals import *
 
 pygame.mixer.pre_init(44100, -16, 2, 2048)
@@ -7,15 +7,20 @@ clock = pygame.time.Clock()
 
 pygame.display.set_caption('Shooter Platformer')
 
-WINDOW_SIZE = pyautogui.size()
+user32 = ctypes.windll.user32
+WINDOW_SIZE = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
 
 screen = pygame.display.set_mode(WINDOW_SIZE, FULLSCREEN | DOUBLEBUF)
 
-display = pygame.Surface(WINDOW_SIZE)
+display = pygame.Surface((1920, 1080))
 
 pygame.mouse.set_visible(False)
 
 # Create variables
+save_number = 0
+start_menu = True
+load_game_menu = False
+game_running = False
 scroll = [0,0]
 gravity_strength = 1.8
 bullets = []
@@ -29,11 +34,7 @@ cursor = pygame.transform.scale(pygame.image.load('data/images/cursor.png'), (32
 cursor.set_colorkey((255, 255, 255))
 
 instruction_img = pygame.image.load('data/images/instructions.png').convert_alpha()
-
-bgback = pygame.image.load('data/images/backgrounds/BGBack.png').convert_alpha()
-bgfront = pygame.image.load('data/images/backgrounds/BGFront.png').convert_alpha()
-cloudsback = pygame.image.load('data/images/backgrounds/CloudsBack.png').convert_alpha()
-cloudsfront = pygame.image.load('data/images/backgrounds/CloudsFront.png').convert_alpha()
+title_img = pygame.image.load('data/images/title_image.png').convert_alpha()
 
 grass = pygame.image.load('data/images/tiles/grass.png').convert()
 dirt = pygame.image.load('data/images/tiles/dirt.png').convert()
@@ -50,6 +51,9 @@ left_edge_grass = pygame.image.load('data/images/tiles/edge_grass.png').convert_
 right_edge_grass = pygame.transform.flip(pygame.image.load('data/images/tiles/edge_grass.png').convert_alpha(), True, False)
 left_side_grass_transition = pygame.image.load('data/images/tiles/side_grass_transition.png').convert_alpha()
 right_side_grass_transition = pygame.transform.flip(pygame.image.load('data/images/tiles/side_grass_transition.png').convert_alpha(), True, False)
+left_bottom_corner_dirt = pygame.image.load('data/images/tiles/bottom_corner_dirt.png').convert_alpha()
+right_bottom_corner_dirt = pygame.transform.flip(pygame.image.load('data/images/tiles/bottom_corner_dirt.png').convert_alpha(), True, False)
+bottom_dirt = pygame.image.load('data/images/tiles/bottom_dirt.png').convert_alpha()
 
 gun_img = pygame.image.load('data/images/gun.png').convert_alpha()
 
@@ -90,7 +94,11 @@ pygame.mixer.music.set_volume(0.6)
 
 # Load Fonts
 pixel_font = pygame.font.Font("data/fonts/pixel_font.ttf", 30)
-pixel_font_large = pygame.font.Font("data/fonts/pixel_font.ttf", 150)
+pixel_font_large = pygame.font.Font("data/fonts/pixel_font.ttf", 200)
+
+# Create save file
+if not os.path.isfile('saves.txt'):
+    save_file = open('saves.txt', 'w+')
 
 #Classes
 class Level():
@@ -159,6 +167,12 @@ class Level():
                     display.blit(pygame.transform.scale(left_side_grass_transition, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
                 if tile == 'f':
                     display.blit(pygame.transform.scale(right_side_grass_transition, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
+                if tile == 'g':
+                    display.blit(pygame.transform.scale(left_bottom_corner_dirt, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
+                if tile == 'h':
+                    display.blit(pygame.transform.scale(right_bottom_corner_dirt, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
+                if tile == 'i':
+                    display.blit(pygame.transform.scale(bottom_dirt, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
                 x += self.tile_size[0]
             y += self.tile_size[1]
 
@@ -261,6 +275,25 @@ class Player():
         # pygame.draw.rect(display, (0, 0, 0), self.rect, 1)
 
     def change_level(self, new_level):
+        #update save file
+        with open('saves.txt', 'r') as f:
+            save_data = f.read()
+            f.close()
+
+        save_data = save_data.split(',')
+        save_data = save_data[:-1]
+        for i, n in enumerate(save_data):
+            if n == player.level:
+               save_data[i] = new_level
+            save_data_string = ''
+            for i in save_data:
+                save_data_string += i + ','
+
+        with open('saves.txt', 'w') as f:
+            f.write(save_data_string)
+            f.close()
+
+        #reset everything
         enemies.clear()
         particles.clear()
         bullets.clear()
@@ -493,6 +526,40 @@ class Particle():
     def draw(self):
         pygame.draw.circle(display, self.color, (int(self.x - scroll[0]), int(self.y - scroll[1])), int(self.radius))
 
+class Button():
+    def __init__(self, x, y, width, height, color, text, text_color, font):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.color = color
+        self.pressed_color = numpy.subtract(self.color, (50, 50, 50))
+        self.text = text
+        self.text_color = text_color
+        self.font = font
+
+    def update(self):
+        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        self.rendered_text = pixel_font.render(self.text, 1, self.text_color)
+        self.text_rect = self.rendered_text.get_rect()
+        self.text_rect.center = self.rect.center
+
+    def is_over(self):
+        mx, my = pygame.mouse.get_pos()
+        if self.x < mx < self.x + self.width and self.y < my < self.y + self.height:
+            return True
+        else:
+            return False
+
+    def draw(self):
+        mx, my = pygame.mouse.get_pos()
+        if self.is_over():
+            pygame.draw.rect(display, self.pressed_color, self.rect)
+        else:
+            pygame.draw.rect(display, self.color, self.rect)
+        pygame.draw.rect(display, self.text_color, self.rect, 5)
+        display.blit(self.rendered_text, (self.text_rect.x, self.text_rect.y))
+
 # Create classes
 levels = {'Tutorial':Level('map0', (600, 490), [(2940, 250)], 1400), 'Level 1':Level('map1', (600, 800), [(255, 445), (1695, -130), (3925, 380), (3915, 0)], 1900)}
 for level in levels:
@@ -506,6 +573,22 @@ for enemy_pos in levels[player.level].enemy_pos:
     enemy_id_counter += 1
 
 gun = Gun(gun_img)
+
+new_game_button = Button(560, 550, 800, 200, (75, 173, 89), "New Game", (0, 0, 0), pixel_font_large)
+load_game_button = Button(560, 800, 800, 200, (75, 160, 173), "Load Game", (0, 0, 0), pixel_font_large)
+back_button = Button(1500, 930, 200, 90, (255, 50, 50), "Back", (0, 0, 0), pixel_font_large)
+save_buttons = []
+with open('saves.txt', 'r') as f:
+    save_data = f.read()
+    f.close()
+    save_data = save_data.split(',')
+    save_data = save_data[:-1]
+    game_counter = 1
+    save_button_y = 50
+    for save in save_data:
+        save_buttons.append(Button(760, save_button_y, 400, 90, (255, 255, 255), "Game {}: {}".format(game_counter, save), (0, 0, 0), pixel_font_large))
+        game_counter += 1
+        save_button_y += 110
 
 #Functions
 def collision_check(rect, tiles):
@@ -544,13 +627,35 @@ def update_cursor(mousepos):
     cursor_rect.center = mousepos
     display.blit(cursor, cursor_rect)
 
-def draw():
+def draw_start_menu():
     display.fill((200,255,255))
 
-    # display.blit(cloudsback, (0 - scroll[0]*0.8 - 500, 0 - scroll[1]*0.8 - 200))
-    # display.blit(cloudsfront, (0 - scroll[0]*0.6 - 500, 0 - scroll[1]*0.6 - 200))
-    # display.blit(bgback, (0 - scroll[0]*0.4 - 500, 0 - scroll[1]*0.4 - 200))
-    # display.blit(bgfront, (0 - scroll[0]*0.2 - 500, 0 - scroll[1]*0.2 - 200))
+    new_game_button.draw()
+    load_game_button.draw()
+    display.blit(title_img, (250, 0))
+
+    update_cursor(pygame.mouse.get_pos())
+
+    screen.blit(pygame.transform.scale(display, WINDOW_SIZE), (0, 0))
+
+    pygame.display.update()
+
+def draw_load_game_menu():
+    display.fill((200,255,255))
+
+    for button in save_buttons:
+        button.draw()
+
+    back_button.draw()
+
+    update_cursor(pygame.mouse.get_pos())
+
+    screen.blit(pygame.transform.scale(display, WINDOW_SIZE), (0, 0))
+
+    pygame.display.update()
+
+def draw():
+    display.fill((200,255,255))
 
     levels[player.level].draw()
 
@@ -574,158 +679,227 @@ def draw():
         display.blit(instruction_img, (380 - scroll[0], 380 - scroll[1]))
 
     level_text = pixel_font.render(player.level, 1, (0, 0, 0))
-    time_text = pixel_font.render(str(round(levels[player.level].timer, 2)), 100, (0, 0, 0))
+    time_text = pixel_font.render(str(round(levels[player.level].timer, 2)), 1, (0, 0, 0))
     display.blit(level_text, (30, 30))
     display.blit(time_text, (30, 60))
 
     update_cursor(pygame.mouse.get_pos())
 
-    screen.blit(display, (0, 0))
+    screen.blit(pygame.transform.scale(display, WINDOW_SIZE), (0, 0))
 
     pygame.display.update()
 
-pygame.mixer.music.play(-1)
-levels[player.level].create_map_hitbox()
-
 # Main Loop
 while True:
-    clock.tick(60)
-    if clock.get_fps() > 0:
-        levels[player.level].timer += 1/(clock.get_fps())
+    if start_menu:
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
 
-    scroll[0] += int((player.rect.x - scroll[0] - (WINDOW_SIZE[0]/2 + player.width/2))/20)
-    scroll[1] += int((player.rect.y - scroll[1] - (WINDOW_SIZE[1]/2 + player.height/2))/20)
+            if event.type == KEYDOWN:
+                if event.key == pygame.K_f:
+                    screen = pygame.display.set_mode(WINDOW_SIZE, pygame.FULLSCREEN)
+                if event.key == pygame.K_ESCAPE:
+                    screen = pygame.display.set_mode(WINDOW_SIZE)
 
-# Events
-    for event in pygame.event.get():
-        if event.type == QUIT:
-            pygame.quit()
-            sys.exit()
+            if event.type == MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    if new_game_button.is_over():
+                        with open('saves.txt', 'r+') as f:
+                            save_data = f.read()
+                            save_data = save_data.split(',')
+                            if len(save_data) < 9:
+                                f.write('Tutorial,')
+                                f.close()
+                                save_number = len(save_data)
+                                game_running = True
+                                start_menu = False
+                                pygame.mixer.music.play(-1)
+                                
+                    if load_game_button.is_over():
+                        load_game_menu = True
+                        start_menu = False
 
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1 and len(bullets) <= 20:
-                mx, my = event.pos
-                slopex = mx - (player.rect.centerx - scroll[0] + 5)
-                slopey = my - (player.rect.centery - scroll[1] + 35)
-                bullets.append(Projectile(player.rect.centerx + 5, player.rect.centery + 35, 10, 14, 15, math.atan2(slopey, slopex), projectile_img))
-                shoot_sound.play()
 
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_d:
-                player.moving_right = True
-            if event.key == pygame.K_a:
-                player.moving_left = True
-            if event.key == pygame.K_LSHIFT:
-                player.sprinting = True
-            if event.key == pygame.K_SPACE or event.key == pygame.K_w:
-                if player.times_jumped < 2:
-                    player.jumping = True
-            if event.key == pygame.K_f:
-                screen = pygame.display.set_mode(WINDOW_SIZE, pygame.FULLSCREEN)
-            if event.key == pygame.K_ESCAPE:
-                screen = pygame.display.set_mode(WINDOW_SIZE)
+        new_game_button.update()
+        load_game_button.update()
+        draw_start_menu()
 
-        if event.type == pygame.KEYUP:
-            if event.key == pygame.K_d:
-                player.moving_right = False
-            if event.key == pygame.K_a:
-                player.moving_left = False
-            if event.key == pygame.K_LSHIFT:
-                player.sprinting = False
-                player.vel = 10
+    if load_game_menu:
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
 
-# die conditions
-    if player.rect.y >= levels[player.level].die_height:
-        player.die()
-    if player.health <= 0:
-        player.die()
+            if event.type == KEYDOWN:
+                if event.key == pygame.K_f:
+                    screen = pygame.display.set_mode(WINDOW_SIZE, pygame.FULLSCREEN)
+                if event.key == pygame.K_ESCAPE:
+                    screen = pygame.display.set_mode(WINDOW_SIZE)
 
-# level-change conditions
-    if player.level == 'Tutorial':
-        if enemies == []:
-            player.change_level('Level 1')
+            if event.type == MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    if back_button.is_over():
+                        load_game_menu = False
+                        start_menu = True
+                    for i, button in enumerate(save_buttons):
+                        if button.is_over():
+                            save_number = i
+                            with open('saves.txt', 'r') as f:
+                                save_data = f.read()
+                                save_data = save_data.split(',')
+                                save_data = save_data[:-1]
+                                player.change_level(save_data[save_number])
+                                f.close()
+                                load_game_menu = False
+                                game_running = True
+                                pygame.mixer.music.play(-1)
 
-# player bullets
-    for bullet in bullets:
-        if len(bullets) <= 20:
-            bullet.update()
-            for enemy in enemies:
-                if bullet.rect.colliderect(enemy.rect):
+        for button in save_buttons:
+            button.update()
+        back_button.update()
+        draw_load_game_menu()
+
+    levels[player.level].create_map_hitbox()
+    if game_running:
+        clock.tick(60)
+        if clock.get_fps() > 0:
+            levels[player.level].timer += 1/(clock.get_fps())
+
+        scroll[0] += int((player.rect.x - scroll[0] - (WINDOW_SIZE[0]/2 + player.width/2))/18)
+        scroll[1] += int((player.rect.y - scroll[1] - (WINDOW_SIZE[1]/2 + player.height/2))/18)
+
+    # Events
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if event.type == MOUSEBUTTONDOWN:
+                if event.button == 1 and len(bullets) <= 20:
+                    mx, my = event.pos
+                    slopex = mx - (player.rect.centerx - scroll[0] + 5)
+                    slopey = my - (player.rect.centery - scroll[1] + 35)
+                    bullets.append(Projectile(player.rect.centerx + 5, player.rect.centery + 35, 10, 14, 15, math.atan2(slopey, slopex), projectile_img))
+                    shoot_sound.play()
+
+            if event.type == KEYDOWN:
+                if event.key == pygame.K_d:
+                    player.moving_right = True
+                if event.key == pygame.K_a:
+                    player.moving_left = True
+                if event.key == pygame.K_LSHIFT:
+                    player.sprinting = True
+                if event.key == pygame.K_SPACE or event.key == pygame.K_w:
+                    if player.times_jumped < 2:
+                        player.jumping = True
+                if event.key == pygame.K_f:
+                    screen = pygame.display.set_mode(WINDOW_SIZE, pygame.FULLSCREEN)
+                if event.key == pygame.K_ESCAPE:
+                    screen = pygame.display.set_mode(WINDOW_SIZE)
+
+            if event.type == KEYUP:
+                if event.key == pygame.K_d:
+                    player.moving_right = False
+                if event.key == pygame.K_a:
+                    player.moving_left = False
+                if event.key == pygame.K_LSHIFT:
+                    player.sprinting = False
+                    player.vel = 10
+
+    # die conditions
+        if player.rect.y >= levels[player.level].die_height:
+            player.die()
+        if player.health <= 0:
+            player.die()
+
+    # level-change conditions
+        if player.level == 'Tutorial':
+            if enemies == []:
+                player.change_level('Level 1')
+
+    # player bullets
+        for bullet in bullets:
+            if len(bullets) <= 20:
+                bullet.update()
+                for enemy in enemies:
+                    if bullet.rect.colliderect(enemy.rect):
+                        if bullet in bullets:
+                            bullets.remove(bullet)
+                        enemy.health -= bullet.damage
+                        enemy_hit_sound.play()
+                        for i in range(8):
+                            particles.append(Particle(bullet.x, bullet.y, [(50, 50, 50), (180, 30, 30), (180, 30, 30), (150, 150, 150), (100, 0, 0)], -25, 25, -50, 0, 3, 10, 0.4, 0.2))
+                if bullet.collision_types['top'] or bullet.collision_types['bottom'] or bullet.collision_types['right'] or bullet.collision_types['left']:
                     if bullet in bullets:
                         bullets.remove(bullet)
-                    enemy.health -= bullet.damage
-                    enemy_hit_sound.play()
-                    for i in range(8):
-                        particles.append(Particle(bullet.x, bullet.y, [(50, 50, 50), (180, 30, 30), (180, 30, 30), (150, 150, 150), (100, 0, 0)], -25, 25, -50, 0, 3, 10, 0.4, 0.2))
-            if bullet.collision_types['top'] or bullet.collision_types['bottom'] or bullet.collision_types['right'] or bullet.collision_types['left']:
-                if bullet in bullets:
-                    bullets.remove(bullet)
-                explosion_sound.play()
-                if bullet.collision_types['top']:
-                    for i in range(20):
-                        particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (200, 200, 200), (100, 100, 100), (123, 54, 0)], -25, 25, 10, 60, 4, 15, 0.4, 0.2))
-                if bullet.collision_types['bottom']:
-                    for i in range(20):
-                        particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (200, 200, 200), (100, 100, 100), (123, 54, 0)], -25, 25, -60, -10, 4, 15, 0.4, 0.2))
-                if bullet.collision_types['right']:
-                    for i in range(20):
-                        particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (200, 200, 200), (100, 100, 100), (123, 54, 0)], -60, -10, -25, 25, 4, 15, 0.4, 0.2))
-                if bullet.collision_types['left']:
-                    for i in range(20):
-                        particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (200, 200, 200), (100, 100, 100), (123, 54, 0)], 10, 60, -25, 25, 4, 15, 0.4, 0.2))
-        else:
-            bullets.remove(bullet)
+                    explosion_sound.play()
+                    if bullet.collision_types['top']:
+                        for i in range(20):
+                            particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (200, 200, 200), (100, 100, 100), (123, 54, 0)], -25, 25, 10, 60, 4, 15, 0.4, 0.2))
+                    if bullet.collision_types['bottom']:
+                        for i in range(20):
+                            particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (200, 200, 200), (100, 100, 100), (123, 54, 0)], -25, 25, -60, -10, 4, 15, 0.4, 0.2))
+                    if bullet.collision_types['right']:
+                        for i in range(20):
+                            particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (200, 200, 200), (100, 100, 100), (123, 54, 0)], -60, -10, -25, 25, 4, 15, 0.4, 0.2))
+                    if bullet.collision_types['left']:
+                        for i in range(20):
+                            particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (200, 200, 200), (100, 100, 100), (123, 54, 0)], 10, 60, -25, 25, 4, 15, 0.4, 0.2))
+            else:
+                bullets.remove(bullet)
 
-# enemy bullets
-    for bullet in enemy_bullets:
-        if len(enemy_bullets) <= 40:
-            bullet.update()
-            if bullet.rect.colliderect(player.rect):
-                if bullet in enemy_bullets:
-                    enemy_bullets.remove(bullet)
-                player.health -= bullet.damage
-                player_hit_sound.play()
-                for i in range(20):
-                    particles.append(Particle(bullet.x, bullet.y, [(50, 50, 50), (180, 30, 30), (150, 150, 150), (94, 49, 91)], -25, 25, -50, 0, 4, 15, 0.4, 0.2))
-            if bullet.collision_types['top'] or bullet.collision_types['bottom'] or bullet.collision_types['right'] or bullet.collision_types['left'] and not bullet.rect.colliderect(player.rect):
-                if bullet in enemy_bullets:
-                    enemy_bullets.remove(bullet)
-                explosion_sound.play()
-                if bullet.collision_types['top']:
-                    for i in range(23):
-                        particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (100, 100, 100), (150, 54, 54)], -25, 25, 10, 60, 4, 15, 0.4, 0.2))
-                if bullet.collision_types['bottom']:
-                    for i in range(23):
-                        particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (100, 100, 100), (150, 54, 54)], -25, 25, -60, -10, 4, 15, 0.4, 0.2))
-                if bullet.collision_types['right']:
-                    for i in range(23):
-                        particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (100, 100, 100), (150, 54, 54)], -60, -10, -25, 25, 4, 15, 0.4, 0.2))
-                if bullet.collision_types['left']:
-                    for i in range(23):
-                        particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (100, 100, 100), (150, 54, 54)], 10, 60, -25, 25, 4, 15, 0.4, 0.2))
-        else:
-            enemy_bullets.remove(bullet)
+    # enemy bullets
+        for bullet in enemy_bullets:
+            if len(enemy_bullets) <= 40:
+                bullet.update()
+                if bullet.rect.colliderect(player.rect):
+                    if bullet in enemy_bullets:
+                        enemy_bullets.remove(bullet)
+                    player.health -= bullet.damage
+                    player_hit_sound.play()
+                    for i in range(20):
+                        particles.append(Particle(bullet.x, bullet.y, [(50, 50, 50), (180, 30, 30), (150, 150, 150), (94, 49, 91)], -25, 25, -50, 0, 4, 15, 0.4, 0.2))
+                if bullet.collision_types['top'] or bullet.collision_types['bottom'] or bullet.collision_types['right'] or bullet.collision_types['left'] and not bullet.rect.colliderect(player.rect):
+                    if bullet in enemy_bullets:
+                        enemy_bullets.remove(bullet)
+                    explosion_sound.play()
+                    if bullet.collision_types['top']:
+                        for i in range(23):
+                            particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (100, 100, 100), (150, 54, 54)], -25, 25, 10, 60, 4, 15, 0.4, 0.2))
+                    if bullet.collision_types['bottom']:
+                        for i in range(23):
+                            particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (100, 100, 100), (150, 54, 54)], -25, 25, -60, -10, 4, 15, 0.4, 0.2))
+                    if bullet.collision_types['right']:
+                        for i in range(23):
+                            particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (100, 100, 100), (150, 54, 54)], -60, -10, -25, 25, 4, 15, 0.4, 0.2))
+                    if bullet.collision_types['left']:
+                        for i in range(23):
+                            particles.append(Particle(bullet.x, bullet.y, [(140, 140, 140), (100, 100, 100), (150, 54, 54)], 10, 60, -25, 25, 4, 15, 0.4, 0.2))
+            else:
+                enemy_bullets.remove(bullet)
 
-    if player.moving_right and player.collision_types['bottom']:
-        particles.append(Particle(player.rect.midbottom[0], player.rect.midbottom[1], [(199, 222, 90), (180, 207, 42), (110, 162, 38), (144, 88, 51), (123, 71, 32), (98, 57, 27)], -50, 0, 0, 5, 2, 8, 0.4, 0.2))
-    if player.moving_left and player.collision_types['bottom']:
-        particles.append(Particle(player.rect.midbottom[0], player.rect.midbottom[1], [(199, 222, 90), (180, 207, 42), (110, 162, 38), (144, 88, 51), (123, 71, 32), (98, 57, 27)], 0, 50, 0, 5, 2, 8, 0.4, 0.2))
-    
-    for particle in particles:
-        particle.update()
-        if particle.radius <= 0:
-            particles.remove(particle)
+        if player.moving_right and player.collision_types['bottom']:
+            particles.append(Particle(player.rect.midbottom[0], player.rect.midbottom[1], [(199, 222, 90), (180, 207, 42), (110, 162, 38), (144, 88, 51), (123, 71, 32), (98, 57, 27)], -50, 0, 0, 5, 2, 8, 0.4, 0.2))
+        if player.moving_left and player.collision_types['bottom']:
+            particles.append(Particle(player.rect.midbottom[0], player.rect.midbottom[1], [(199, 222, 90), (180, 207, 42), (110, 162, 38), (144, 88, 51), (123, 71, 32), (98, 57, 27)], 0, 50, 0, 5, 2, 8, 0.4, 0.2))
+        
+        for particle in particles:
+            particle.update()
+            if particle.radius <= 0:
+                particles.remove(particle)
 
-# enemy die conditions
-    for enemy in enemies:
-        if enemy.health <= 0 or enemy.rect.y >= levels[player.level].die_height:
-            enemies.remove(enemy)
-            enemy_death_sound.play()
-            for i in range(50):
-                particles.append(Particle(enemy.rect.centerx, enemy.rect.centery, [(140, 140, 140), (255, 50, 50), (255, 50, 50), (255, 50, 50), (50, 50, 50), (100, 0, 0)], -40, 40, -80, 0, 4, 15, 0.4, 0.2))
-        else:
-            enemy.update()
+    # enemy die conditions
+        for enemy in enemies:
+            if enemy.health <= 0 or enemy.rect.y >= levels[player.level].die_height:
+                enemies.remove(enemy)
+                enemy_death_sound.play()
+                for i in range(50):
+                    particles.append(Particle(enemy.rect.centerx, enemy.rect.centery, [(140, 140, 140), (255, 50, 50), (255, 50, 50), (255, 50, 50), (50, 50, 50), (100, 0, 0)], -40, 40, -80, 0, 4, 15, 0.4, 0.2))
+            else:
+                enemy.update()
 
-    player.update()
-    gun.update()
-    draw()
+        player.update()
+        gun.update()
+        draw()
