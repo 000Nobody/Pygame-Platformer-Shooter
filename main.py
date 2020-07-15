@@ -1,4 +1,4 @@
-import pygame, math, os, random, numpy, sys, pyautogui
+import pygame, math, os, random, numpy, sys
 from pygame.locals import *
 
 pygame.mixer.pre_init(44100, -16, 2, 2048)
