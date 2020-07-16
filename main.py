@@ -1,4 +1,5 @@
-import pygame, math, os, random, numpy, sys
+import pygame, math, os, random, sys
+from operator import sub
 from pygame.locals import *
 
 pygame.mixer.pre_init(44100, -16, 2, 2048)
@@ -7,10 +8,10 @@ clock = pygame.time.Clock()
 
 pygame.display.set_caption('Shooter Platformer')
 
-infoObject = pygame.display.Info()
-WINDOW_SIZE = (infoObject.current_w, infoObject.current_h)
+info_object = pygame.display.Info()
+WINDOW_SIZE = (info_object.current_w, info_object.current_h)
 
-screen = pygame.display.set_mode(WINDOW_SIZE, FULLSCREEN | DOUBLEBUF)
+screen = pygame.display.set_mode(WINDOW_SIZE, FULLSCREEN)
 
 display = pygame.Surface((1920, 1080))
 
@@ -18,9 +19,10 @@ pygame.mouse.set_visible(False)
 
 # Create variables
 save_number = 0
-start_menu = True
+main_menu = True
 load_game_menu = False
 game_running = False
+escape_menu = False
 scroll = [0,0]
 gravity_strength = 1.8
 bullets = []
@@ -35,6 +37,9 @@ cursor.set_colorkey((255, 255, 255))
 
 instruction_img = pygame.image.load('data/images/instructions.png').convert_alpha()
 title_img = pygame.image.load('data/images/title_image.png').convert_alpha()
+health_bar_img = pygame.image.load('data/images/health_bar.png').convert_alpha()
+overlay_img = pygame.transform.scale(pygame.image.load('data/images/black_overlay.png').convert(), WINDOW_SIZE)
+overlay_img.set_alpha(150)
 
 grass = pygame.image.load('data/images/tiles/grass.png').convert()
 dirt = pygame.image.load('data/images/tiles/dirt.png').convert()
@@ -84,13 +89,12 @@ explosion_sound = pygame.mixer.Sound('data/sounds/explosion.wav')
 enemy_hit_sound = pygame.mixer.Sound('data/sounds/enemy_hit.wav')
 enemy_death_sound = pygame.mixer.Sound('data/sounds/enemy_death.wav')
 player_hit_sound = pygame.mixer.Sound('data/sounds/player_hit.wav')
+select_sound = pygame.mixer.Sound('data/sounds/select.wav')
 jump_sound.set_volume(0.8)
 shoot_sound.set_volume(0.5)
 explosion_sound.set_volume(0.7)
 enemy_hit_sound.set_volume(0.7)
-
-pygame.mixer.music.load('data/sounds/bgmusic.wav')
-pygame.mixer.music.set_volume(0.6)
+select_sound.set_volume(0.6)
 
 # Load Fonts
 pixel_font = pygame.font.Font("data/fonts/pixel_font.ttf", 30)
@@ -282,12 +286,10 @@ class Player():
 
         save_data = save_data.split(',')
         save_data = save_data[:-1]
-        for i, n in enumerate(save_data):
-            if n == player.level:
-               save_data[i] = new_level
-            save_data_string = ''
-            for i in save_data:
-                save_data_string += i + ','
+        save_data[save_number] = new_level
+        save_data_string = ''
+        for i in save_data:
+            save_data_string += i + ','
 
         with open('saves.txt', 'w') as f:
             f.write(save_data_string)
@@ -403,10 +405,10 @@ class Enemy():
             if self.shoot_timer >= 60:
                 self.slopex = (player.rect.centerx - scroll[0]) - (self.rect.centerx - scroll[0] + 5)
                 self.slopey = (player.rect.centery - scroll[1]) - (self.rect.centery - scroll[1] + 35)
-                enemy_bullets.append(Projectile(self.rect.centerx + 5, self.rect.centery + 35, 15, 17, 50, math.atan2(self.slopey, self.slopex), enemy_projectile_img))
+                enemy_bullets.append(Projectile(self.rect.centerx + 5, self.rect.centery + 35, 15, 17, 35, math.atan2(self.slopey, self.slopex), enemy_projectile_img))
                 self.shoot_timer = 0
         if self.rect.colliderect(player.rect):
-            player.die()
+            player.health -= 2
 
     def pathfind(self):
         if math.sqrt(abs((self.rect.centerx - player.rect.centerx)**2 + (self.rect.centery - player.rect.centery)**2)) <= self.pathfind_range:
@@ -533,7 +535,7 @@ class Button():
         self.width = width
         self.height = height
         self.color = color
-        self.pressed_color = numpy.subtract(self.color, (50, 50, 50))
+        self.pressed_color = tuple(map(sub, self.color, (50, 50, 50)))
         self.text = text
         self.text_color = text_color
         self.font = font
@@ -574,22 +576,6 @@ for enemy_pos in levels[player.level].enemy_pos:
 
 gun = Gun(gun_img)
 
-new_game_button = Button(560, 550, 800, 200, (75, 173, 89), "New Game", (0, 0, 0), pixel_font_large)
-load_game_button = Button(560, 800, 800, 200, (75, 160, 173), "Load Game", (0, 0, 0), pixel_font_large)
-back_button = Button(1500, 930, 200, 90, (255, 50, 50), "Back", (0, 0, 0), pixel_font_large)
-save_buttons = []
-with open('saves.txt', 'r') as f:
-    save_data = f.read()
-    f.close()
-    save_data = save_data.split(',')
-    save_data = save_data[:-1]
-    game_counter = 1
-    save_button_y = 50
-    for save in save_data:
-        save_buttons.append(Button(760, save_button_y, 400, 90, (255, 255, 255), "Game {}: {}".format(game_counter, save), (0, 0, 0), pixel_font_large))
-        game_counter += 1
-        save_button_y += 110
-
 #Functions
 def collision_check(rect, tiles):
     hit_list = []
@@ -627,11 +613,22 @@ def update_cursor(mousepos):
     cursor_rect.center = mousepos
     display.blit(cursor, cursor_rect)
 
-def draw_start_menu():
+def play_bgmusic():
+    pygame.mixer.music.load('data/sounds/bgmusic.wav')
+    pygame.mixer.music.play(-1)
+    pygame.mixer.music.set_volume(0.6)
+
+def play_menu_music():
+    pygame.mixer.music.load('data/sounds/menu_music.wav')
+    pygame.mixer.music.play(-1)
+    pygame.mixer.music.set_volume(0.2)
+
+def draw_main_menu():
     display.fill((200,255,255))
 
     new_game_button.draw()
     load_game_button.draw()
+    exit_button.draw()
     display.blit(title_img, (250, 0))
 
     update_cursor(pygame.mouse.get_pos())
@@ -646,6 +643,9 @@ def draw_load_game_menu():
     for button in save_buttons:
         button.draw()
 
+    for button in delete_save_buttons:
+        button.draw()
+
     back_button.draw()
 
     update_cursor(pygame.mouse.get_pos())
@@ -653,6 +653,18 @@ def draw_load_game_menu():
     screen.blit(pygame.transform.scale(display, WINDOW_SIZE), (0, 0))
 
     pygame.display.update()
+
+def draw_escape_menu():
+    resume_button = Button(710, 265, 500, 150, (50, 200, 50), "Resume Game", (0, 0, 0), pixel_font_large)
+    main_menu_button = Button(710, 465, 500, 150, (75, 160, 173), "Go to Main Menu", (0, 0, 0), pixel_font_large)
+    exit_fullscreen_button = Button(710, 665, 500, 150, (255, 50, 50), "Exit Fullscreen", (0, 0, 0), pixel_font_large)
+    resume_button.update()
+    main_menu_button.update()
+    exit_fullscreen_button.update()
+    display.blit(overlay_img, (0, 0))
+    resume_button.draw()
+    main_menu_button.draw()
+    exit_fullscreen_button.draw()
 
 def draw():
     display.fill((200,255,255))
@@ -678,10 +690,17 @@ def draw():
     if player.level == 'Tutorial':
         display.blit(instruction_img, (380 - scroll[0], 380 - scroll[1]))
 
+    health_bar_rect = pygame.Rect(94, 1028, player.health*2, 19)
+    pygame.draw.rect(display, (255, 0, 0), health_bar_rect)
+    display.blit(health_bar_img, (30, 1000))
+
     level_text = pixel_font.render(player.level, 1, (0, 0, 0))
     time_text = pixel_font.render(str(round(levels[player.level].timer, 2)), 1, (0, 0, 0))
     display.blit(level_text, (30, 30))
     display.blit(time_text, (30, 60))
+
+    if escape_menu:
+        draw_escape_menu()
 
     update_cursor(pygame.mouse.get_pos())
 
@@ -690,8 +709,20 @@ def draw():
     pygame.display.update()
 
 # Main Loop
+play_menu_music()
 while True:
-    if start_menu:
+    if main_menu:
+        new_game_button = Button(560, 550, 800, 200, (75, 173, 89), "New Game", (0, 0, 0), pixel_font_large)
+        exit_button = Button(1500, 900, 300, 100, (255, 50, 50), "Exit to desktop", (0, 0, 0), pixel_font_large)
+
+        with open('saves.txt', 'r') as f:
+            save_data = f.read()
+            f.close()
+
+        save_data = save_data.split(',')
+        save_data = save_data[:-1]
+        load_game_button = Button(560, 800, 800, 200, (75, 160, 173), "Load Game ({}/9)".format(len(save_data)), (0, 0, 0), pixel_font_large)
+
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
@@ -705,6 +736,10 @@ while True:
 
             if event.type == MOUSEBUTTONDOWN:
                 if event.button == 1:
+                    if exit_button.is_over():
+                        select_sound.play()
+                        sys.exit()
+                        pygame.quit()
                     if new_game_button.is_over():
                         with open('saves.txt', 'r+') as f:
                             save_data = f.read()
@@ -712,21 +747,40 @@ while True:
                             if len(save_data) < 9:
                                 f.write('Tutorial,')
                                 f.close()
-                                save_number = len(save_data)
+                                save_number = len(save_data) - 1
                                 game_running = True
-                                start_menu = False
-                                pygame.mixer.music.play(-1)
-                                
+                                main_menu = False
+                                select_sound.play()
+                                play_bgmusic()
                     if load_game_button.is_over():
                         load_game_menu = True
-                        start_menu = False
-
+                        main_menu = False
+                        select_sound.play()
 
         new_game_button.update()
         load_game_button.update()
-        draw_start_menu()
+        exit_button.update()
+        draw_main_menu()
 
     if load_game_menu:
+        save_buttons = []
+        delete_save_buttons = []
+        with open('saves.txt', 'r') as f:
+            save_data = f.read()
+            f.close()
+
+        save_data = save_data.split(',')
+        save_data = save_data[:-1]
+        game_counter = 1
+        save_button_y = 50
+        for save in save_data:
+            save_buttons.append(Button(612, save_button_y, 400, 90, (255, 255, 255), "Game {}: {}".format(game_counter, save), (0, 0, 0), pixel_font_large))
+            delete_save_buttons.append(Button(1032, save_button_y, 275, 90, (255, 50, 50), "Delete Game {}".format(game_counter), (0, 0, 0), pixel_font_large))
+            game_counter += 1
+            save_button_y += 110
+
+        back_button = Button(1500, 930, 200, 90, (255, 50, 50), "Back", (0, 0, 0), pixel_font_large)
+
         for event in pygame.event.get():
             if event.type == QUIT:
                 pygame.quit()
@@ -742,7 +796,8 @@ while True:
                 if event.button == 1:
                     if back_button.is_over():
                         load_game_menu = False
-                        start_menu = True
+                        main_menu = True
+                        select_sound.play()
                     for i, button in enumerate(save_buttons):
                         if button.is_over():
                             save_number = i
@@ -754,12 +809,63 @@ while True:
                                 f.close()
                                 load_game_menu = False
                                 game_running = True
-                                pygame.mixer.music.play(-1)
+                                select_sound.play()
+                                play_bgmusic()
+                    for i, button in enumerate(delete_save_buttons):
+                        if button.is_over():
+                            select_sound.play()
+                            with open('saves.txt', 'r') as f:
+                                save_data = f.read()
+                                f.close()
+
+                            save_data = save_data.split(',')
+                            save_data = save_data[:-1]
+                            save_data.pop(i)
+                            save_data_string = ''
+                            for save in save_data:
+                                save_data_string += save + ','
+
+                            with open('saves.txt', 'w') as f:
+                                f.write(save_data_string)
+                                f.close()
 
         for button in save_buttons:
             button.update()
+        for button in delete_save_buttons:
+            button.update()
         back_button.update()
         draw_load_game_menu()
+
+    if escape_menu:
+        resume_button = Button(710, 265, 500, 150, (50, 200, 50), "Resume Game", (0, 0, 0), pixel_font_large)
+        main_menu_button = Button(710, 465, 500, 150, (75, 160, 173), "Go to Main Menu", (0, 0, 0), pixel_font_large)
+        exit_fullscreen_button = Button(710, 665, 500, 150, (255, 50, 50), "Exit Fullscreen", (0, 0, 0), pixel_font_large)
+
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if event.type == KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    escape_menu = False
+                if event.key == pygame.K_f:
+                    screen = pygame.display.set_mode(WINDOW_SIZE, FULLSCREEN)
+
+            if event.type == MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    if resume_button.is_over():
+                        escape_menu = False
+                        select_sound.play()
+                    if main_menu_button.is_over():
+                        escape_menu = False
+                        game_running = False
+                        main_menu = True
+                        select_sound.play()
+                        play_menu_music()
+                    if exit_fullscreen_button.is_over():
+                        screen = pygame.display.set_mode(WINDOW_SIZE)
+                        select_sound.play()
 
     levels[player.level].create_map_hitbox()
     if game_running:
@@ -794,10 +900,8 @@ while True:
                 if event.key == pygame.K_SPACE or event.key == pygame.K_w:
                     if player.times_jumped < 2:
                         player.jumping = True
-                if event.key == pygame.K_f:
-                    screen = pygame.display.set_mode(WINDOW_SIZE, pygame.FULLSCREEN)
                 if event.key == pygame.K_ESCAPE:
-                    screen = pygame.display.set_mode(WINDOW_SIZE)
+                    escape_menu = True
 
             if event.type == KEYUP:
                 if event.key == pygame.K_d:
