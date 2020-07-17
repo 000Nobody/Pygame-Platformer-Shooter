@@ -25,6 +25,10 @@ main_menu = True
 load_game_menu = False
 game_running = False
 escape_menu = False
+win_screen = False
+fade_out = False
+fade_in = False
+fade_alpha = 0
 scroll = [0,0]
 gravity_strength = 1.8
 bullets = []
@@ -99,8 +103,10 @@ enemy_hit_sound.set_volume(0.7)
 select_sound.set_volume(0.6)
 
 # Load Fonts
-pixel_font = pygame.font.Font("data/fonts/pixel_font.ttf", 30)
-pixel_font_large = pygame.font.Font("data/fonts/pixel_font.ttf", 200)
+pixel_font = pygame.font.Font('data/fonts/pixel_font.ttf', 30)
+pixel_font_large = pygame.font.Font('data/fonts/pixel_font.ttf', 300)
+title_font = pygame.font.Font('data/fonts/title_font.ttf', 75)
+title_font_large = pygame.font.Font('data/fonts/title_font.ttf', 100)
 
 # Create save file
 if not os.path.isfile('saves.txt'):
@@ -587,7 +593,6 @@ def collision_check(rect, tiles):
     return hit_list
 
 def move(rect, tiles, movement):
-    print(player.rect)
     collision_types = {'top':False,'bottom':False,'right':False,'left':False}
     rect.x += movement[0] * dt
     hit_list = collision_check(rect, tiles)
@@ -620,8 +625,11 @@ def get_saves():
 
 def update_cursor(mousepos):
     cursor_rect = cursor.get_rect()
-    cursor_rect.center = mousepos
-    display.blit(cursor, cursor_rect)
+    mx, my = mousepos
+    mx *= (WINDOW_SIZE[0]/1920)
+    my *= (WINDOW_SIZE[1]/1080)
+    cursor_rect.center = (mx, my)
+    screen.blit(cursor, cursor_rect)
 
 def play_bgmusic():
     pygame.mixer.music.load('data/sounds/bgmusic.wav')
@@ -633,6 +641,11 @@ def play_menu_music():
     pygame.mixer.music.play(-1)
     pygame.mixer.music.set_volume(0.2)
 
+def play_win_music():
+    pygame.mixer.music.load('data/sounds/win_music.wav')
+    pygame.mixer.music.play(-1)
+    pygame.mixer.music.set_volume(0.4)
+
 def draw_main_menu():
     display.fill((180, 235, 235))
 
@@ -641,9 +654,9 @@ def draw_main_menu():
     exit_button.draw()
     display.blit(title_img, (250, 0))
 
-    update_cursor(pygame.mouse.get_pos())
-
     screen.blit(pygame.transform.scale(display, WINDOW_SIZE), (0, 0))
+
+    update_cursor(pygame.mouse.get_pos())
 
     pygame.display.update()
 
@@ -658,25 +671,31 @@ def draw_load_game_menu():
 
     back_button.draw()
 
-    update_cursor(pygame.mouse.get_pos())
-
     screen.blit(pygame.transform.scale(display, WINDOW_SIZE), (0, 0))
+
+    update_cursor(pygame.mouse.get_pos())
 
     pygame.display.update()
 
-def draw_escape_menu():
-    resume_button = Button(710, 265, 500, 150, (50, 200, 50), "Resume Game", (0, 0, 0), pixel_font_large)
-    main_menu_button = Button(710, 465, 500, 150, (75, 160, 173), "Go to Main Menu", (0, 0, 0), pixel_font_large)
-    exit_fullscreen_button = Button(710, 665, 500, 150, (255, 50, 50), "Exit Fullscreen", (0, 0, 0), pixel_font_large)
-    resume_button.update()
-    main_menu_button.update()
-    exit_fullscreen_button.update()
-    display.blit(overlay_img, (0, 0))
-    resume_button.draw()
-    main_menu_button.draw()
-    exit_fullscreen_button.draw()
+def draw_win_screen():
+    display.fill((180, 235, 235))
+
+    congrats_text = title_font_large.render("Congratulations!", 1, (0, 0, 0))
+    you_win_text = title_font.render("You have beaten the game!", 1, (0, 0, 0))
+    display.blit(congrats_text, (190, 150))
+    display.blit(you_win_text, (40, 300))
+
+    win_main_menu_button.draw()
+    win_exit_button.draw()
+
+    screen.blit(pygame.transform.scale(display, WINDOW_SIZE), (0, 0))
+
+    update_cursor(pygame.mouse.get_pos())
+
+    pygame.display.update()
 
 def draw():
+    global fade_out, fade_in, fade_alpha
     display.fill((180, 235, 235))
 
     levels[player.level].draw()
@@ -709,12 +728,45 @@ def draw():
     display.blit(level_text, (30, 30))
     display.blit(time_text, (30, 60))
 
+    def draw_escape_menu():
+        resume_button = Button(710, 265, 500, 150, (50, 200, 50), "Resume Game", (0, 0, 0), pixel_font_large)
+        main_menu_button = Button(710, 465, 500, 150, (75, 160, 173), "Go to Main Menu", (0, 0, 0), pixel_font_large)
+        exit_fullscreen_button = Button(710, 665, 500, 150, (255, 50, 50), "Exit Fullscreen", (0, 0, 0), pixel_font_large)
+
+        resume_button.update()
+        main_menu_button.update()
+        exit_fullscreen_button.update()
+
+        display.blit(overlay_img, (0, 0))
+
+        resume_button.draw()
+        main_menu_button.draw()
+        exit_fullscreen_button.draw()
+
     if escape_menu:
         draw_escape_menu()
 
-    update_cursor(pygame.mouse.get_pos())
+    if fade_out:
+        fade_alpha += 5
+        fade_surface = pygame.Surface(WINDOW_SIZE)
+        fade_surface.fill((0, 0, 0))
+        fade_surface.set_alpha(fade_alpha)
+        display.blit(fade_surface, (0, 0))
+        if fade_alpha >= 300:
+            fade_out = False
+
+    if fade_in:
+        fade_alpha -= 5
+        fade_surface = pygame.Surface(WINDOW_SIZE)
+        fade_surface.fill((0, 0, 0))
+        fade_surface.set_alpha(fade_alpha)
+        display.blit(fade_surface, (0, 0))
+        if fade_alpha <= 5:
+            fade_in = False
 
     screen.blit(pygame.transform.scale(display, WINDOW_SIZE), (0, 0))
+
+    update_cursor(pygame.mouse.get_pos())
 
     pygame.display.update()
 
@@ -861,6 +913,37 @@ while True:
                         screen = pygame.display.set_mode(WINDOW_SIZE)
                         select_sound.play()
 
+    if win_screen:
+        win_main_menu_button = Button(560, 550, 800, 200, (75, 173, 89), "Return to Main Menu", (0, 0, 0), pixel_font_large)
+        win_exit_button = Button(560, 800, 800, 200, (255, 50, 50), "Exit to desktop", (0, 0, 0), pixel_font_large)
+
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if event.type == KEYDOWN:
+                if event.key == pygame.K_f:
+                    screen = pygame.display.set_mode(WINDOW_SIZE, pygame.FULLSCREEN)
+                if event.key == pygame.K_ESCAPE:
+                    screen = pygame.display.set_mode(WINDOW_SIZE)
+
+            if event.type == MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    if win_main_menu_button.is_over():
+                        win_screen = False
+                        main_menu = True
+                        select_sound.play()
+                        play_menu_music()
+                    if win_exit_button.is_over():
+                        select_sound.play()
+                        pygame.quit()
+                        sys.exit()
+
+        win_main_menu_button.update()
+        win_exit_button.update()
+        draw_win_screen()
+
     levels[player.level].create_map_hitbox()
     if game_running:
         levels[player.level].timer += round((1 * dt)/100, 2)
@@ -892,6 +975,8 @@ while True:
                 if event.key == pygame.K_SPACE or event.key == pygame.K_w:
                     if player.times_jumped < 2:
                         player.jumping = True
+                if event.key == pygame.K_f:
+                    screen = pygame.display.set_mode(WINDOW_SIZE, pygame.FULLSCREEN)
                 if event.key == pygame.K_ESCAPE:
                     escape_menu = True
 
@@ -913,16 +998,42 @@ while True:
     # level-change conditions
         if player.level == 'Tutorial':
             if enemies == []:
-                player.change_level('Level 1')
+                fade_out = True
+                pygame.mixer.music.fadeout(1000)
+                if fade_alpha >= 300:
+                    fade_in = True
+                    play_bgmusic()
+                    player.change_level('Level 1')
         if player.level == 'Level 1':
             if enemies == []:
-                player.change_level('Level 2')
+                fade_out = True
+                pygame.mixer.music.fadeout(1000)
+                if fade_alpha >= 300:
+                    fade_in = True
+                    play_bgmusic()
+                    player.change_level('Level 2')
         if player.level == 'Level 2':
             if enemies == []:
-                player.change_level('Level 3')
+                fade_out = True
+                pygame.mixer.music.fadeout(1000)
+                if fade_alpha >= 300:
+                    fade_in = True
+                    play_bgmusic()
+                    player.change_level('Level 3')
         if player.level == 'Level 3':
             if enemies == []:
-                player.change_level('Level 4')
+                fade_out = True
+                pygame.mixer.music.fadeout(1000)
+                if fade_alpha >= 300:
+                    fade_in = True
+                    play_bgmusic()
+                    player.change_level('Level 4')
+        if player.level == 'Level 4':
+            if enemies == []:
+                pygame.mixer.music.fadeout(1000)
+                game_running = False
+                win_screen = True
+                play_win_music()
 
     # player bullets
         for bullet in bullets:
