@@ -1,4 +1,4 @@
-import pygame, math, os, random, sys
+import pygame, math, os, random, sys, time
 from operator import sub
 from pygame.locals import *
 
@@ -18,6 +18,8 @@ display = pygame.Surface((1920, 1080))
 pygame.mouse.set_visible(False)
 
 # Create variables
+FPS = 60
+last_time = time.time()
 save_number = 0
 main_menu = True
 load_game_menu = False
@@ -218,7 +220,7 @@ class Player():
             self.times_jumped += 1
             jump_sound.play()
             for i in range(5):
-                particles.append(Particle(player.rect.midbottom[0], player.rect.midbottom[1], [(150, 150, 150), (255, 255, 255), (200, 200, 200)], -40, 40, -5, 0, 2, 10, 0.8, 0.2))
+                particles.append(Particle(player.rect.midbottom[0], player.rect.midbottom[1], [(150, 150, 150), (225, 225, 225), (200, 200, 200)], -40, 40, -5, 0, 4, 10, 0.8, 0.2))
             self.jumping = False
 
         if not self.moving_left and not self.moving_right:
@@ -227,7 +229,7 @@ class Player():
 
         self.rect, self.collision_types, self.hit_list = move(self.rect, tile_rects, self.movement)
 
-        self.vertical_momentum += gravity_strength
+        self.vertical_momentum += gravity_strength * dt
         if self.vertical_momentum > 50:
              self.vertical_momentum = 50
 
@@ -280,12 +282,7 @@ class Player():
 
     def change_level(self, new_level):
         #update save file
-        with open('saves.txt', 'r') as f:
-            save_data = f.read()
-            f.close()
-
-        save_data = save_data.split(',')
-        save_data = save_data[:-1]
+        save_data = get_saves()
         save_data[save_number] = new_level
         save_data_string = ''
         for i in save_data:
@@ -363,7 +360,7 @@ class Enemy():
 
         self.rect, self.collision_types, self.hit_list = move(self.rect, tile_rects + [enemy.rect for enemy in enemies if enemy.id != self.id], self.movement)
 
-        self.vertical_momentum += gravity_strength
+        self.vertical_momentum += gravity_strength * dt
         if self.vertical_momentum > 50:
              self.vertical_momentum = 50
 
@@ -400,7 +397,7 @@ class Enemy():
         self.frame = frame
 
     def attack(self):
-        self.shoot_timer += 1
+        self.shoot_timer += 1 * dt
         if math.sqrt(abs((self.rect.centerx - player.rect.centerx)**2 + (self.rect.centery - player.rect.centery)**2)) <= self.attack_range:
             if self.shoot_timer >= 60:
                 self.slopex = (player.rect.centerx - scroll[0]) - (self.rect.centerx - scroll[0] + 5)
@@ -479,8 +476,8 @@ class Projectile():
         self.collision_check(self.rect, tile_rects)
 
     def trajectory(self):
-        self.x += math.cos(self.angle) * self.vel
-        self.y += math.sin(self.angle) * self.vel
+        self.x += math.cos(self.angle) * self.vel * dt
+        self.y += math.sin(self.angle) * self.vel * dt
 
     def draw(self):
         self.rect = pygame.Rect(self.x - self.radius, self.y - self.radius, self.radius * 2, self.radius * 2)
@@ -520,10 +517,10 @@ class Particle():
         self.gravity = gravity
 
     def update(self):
-        self.x += self.xvel
-        self.y += self.yvel
-        self.radius -= self.shrink_rate
-        self.yvel += self.gravity
+        self.x += self.xvel * dt
+        self.y += self.yvel * dt
+        self.radius -= self.shrink_rate * dt
+        self.yvel += self.gravity * dt
 
     def draw(self):
         pygame.draw.circle(display, self.color, (int(self.x - scroll[0]), int(self.y - scroll[1])), int(self.radius))
@@ -563,7 +560,11 @@ class Button():
         display.blit(self.rendered_text, (self.text_rect.x, self.text_rect.y))
 
 # Create classes
-levels = {'Tutorial':Level('map0', (600, 490), [(2940, 250)], 1400), 'Level 1':Level('map1', (600, 800), [(255, 445), (1695, -130), (3925, 380), (3915, 0)], 1900)}
+levels = {'Tutorial':Level('map0', (600, 490), [(2940, 250)], 1400),
+          'Level 1':Level('map1', (830, -100), [(140, -145), (5375, 280), (7215, 345)], 800),
+          'Level 2':Level('map2', (600, 800), [(255, 445), (1695, -130), (3925, 380), (3915, 0)], 1900),
+          'Level 3':Level('map3', (50, 400), [(1790, 400), (3125, 100)], 1000),
+          'Level 4':Level('map4', (295, 100), [(1105, 480), (1855, 600), (3935, 675), (4385, 925), (5045, 850)], 1500)}
 for level in levels:
     levels[level].load_map()
 
@@ -586,8 +587,9 @@ def collision_check(rect, tiles):
     return hit_list
 
 def move(rect, tiles, movement):
+    print(player.rect)
     collision_types = {'top':False,'bottom':False,'right':False,'left':False}
-    rect.x += movement[0]
+    rect.x += movement[0] * dt
     hit_list = collision_check(rect, tiles)
     for tile in hit_list:
         if movement[0] > 0:
@@ -596,7 +598,7 @@ def move(rect, tiles, movement):
         elif movement[0] < 0:
             rect.left = tile.right
             collision_types['left'] = True
-    rect.y += movement[1]
+    rect.y += movement[1] * dt
     hit_list = collision_check(rect, tiles)
     for tile in hit_list:
         if movement[1] > 0:
@@ -607,6 +609,14 @@ def move(rect, tiles, movement):
             collision_types['top'] = True
 
     return rect, collision_types, hit_list
+
+def get_saves():
+    with open('saves.txt', 'r') as f:
+        save_data = f.read()
+        f.close()
+    save_data = save_data.split(',')
+    save_data = save_data[:-1]
+    return save_data
 
 def update_cursor(mousepos):
     cursor_rect = cursor.get_rect()
@@ -624,7 +634,7 @@ def play_menu_music():
     pygame.mixer.music.set_volume(0.2)
 
 def draw_main_menu():
-    display.fill((200,255,255))
+    display.fill((180, 235, 235))
 
     new_game_button.draw()
     load_game_button.draw()
@@ -638,7 +648,7 @@ def draw_main_menu():
     pygame.display.update()
 
 def draw_load_game_menu():
-    display.fill((200,255,255))
+    display.fill((180, 235, 235))
 
     for button in save_buttons:
         button.draw()
@@ -667,7 +677,7 @@ def draw_escape_menu():
     exit_fullscreen_button.draw()
 
 def draw():
-    display.fill((200,255,255))
+    display.fill((180, 235, 235))
 
     levels[player.level].draw()
 
@@ -711,17 +721,15 @@ def draw():
 # Main Loop
 play_menu_music()
 while True:
+    clock.tick()
+    dt = time.time() - last_time
+    dt *= FPS
+    last_time = time.time()
+
     if main_menu:
         new_game_button = Button(560, 550, 800, 200, (75, 173, 89), "New Game", (0, 0, 0), pixel_font_large)
         exit_button = Button(1500, 900, 300, 100, (255, 50, 50), "Exit to desktop", (0, 0, 0), pixel_font_large)
-
-        with open('saves.txt', 'r') as f:
-            save_data = f.read()
-            f.close()
-
-        save_data = save_data.split(',')
-        save_data = save_data[:-1]
-        load_game_button = Button(560, 800, 800, 200, (75, 160, 173), "Load Game ({}/9)".format(len(save_data)), (0, 0, 0), pixel_font_large)
+        load_game_button = Button(560, 800, 800, 200, (75, 160, 173), "Load Game ({}/9)".format(len(get_saves())), (0, 0, 0), pixel_font_large)
 
         for event in pygame.event.get():
             if event.type == QUIT:
@@ -748,6 +756,7 @@ while True:
                                 f.write('Tutorial,')
                                 f.close()
                                 save_number = len(save_data) - 1
+                                player.change_level('Tutorial')
                                 game_running = True
                                 main_menu = False
                                 select_sound.play()
@@ -765,15 +774,9 @@ while True:
     if load_game_menu:
         save_buttons = []
         delete_save_buttons = []
-        with open('saves.txt', 'r') as f:
-            save_data = f.read()
-            f.close()
-
-        save_data = save_data.split(',')
-        save_data = save_data[:-1]
         game_counter = 1
         save_button_y = 50
-        for save in save_data:
+        for save in get_saves():
             save_buttons.append(Button(612, save_button_y, 400, 90, (255, 255, 255), "Game {}: {}".format(game_counter, save), (0, 0, 0), pixel_font_large))
             delete_save_buttons.append(Button(1032, save_button_y, 275, 90, (255, 50, 50), "Delete Game {}".format(game_counter), (0, 0, 0), pixel_font_large))
             game_counter += 1
@@ -801,25 +804,16 @@ while True:
                     for i, button in enumerate(save_buttons):
                         if button.is_over():
                             save_number = i
-                            with open('saves.txt', 'r') as f:
-                                save_data = f.read()
-                                save_data = save_data.split(',')
-                                save_data = save_data[:-1]
-                                player.change_level(save_data[save_number])
-                                f.close()
-                                load_game_menu = False
-                                game_running = True
-                                select_sound.play()
-                                play_bgmusic()
+                            save_data = get_saves()
+                            player.change_level(save_data[save_number])
+                            load_game_menu = False
+                            game_running = True
+                            select_sound.play()
+                            play_bgmusic()
                     for i, button in enumerate(delete_save_buttons):
                         if button.is_over():
                             select_sound.play()
-                            with open('saves.txt', 'r') as f:
-                                save_data = f.read()
-                                f.close()
-
-                            save_data = save_data.split(',')
-                            save_data = save_data[:-1]
+                            save_data = get_saves()
                             save_data.pop(i)
                             save_data_string = ''
                             for save in save_data:
@@ -869,12 +863,10 @@ while True:
 
     levels[player.level].create_map_hitbox()
     if game_running:
-        clock.tick(60)
-        if clock.get_fps() > 0:
-            levels[player.level].timer += 1/(clock.get_fps())
+        levels[player.level].timer += round((1 * dt)/100, 2)
 
-        scroll[0] += int((player.rect.x - scroll[0] - (WINDOW_SIZE[0]/2 + player.width/2))/18)
-        scroll[1] += int((player.rect.y - scroll[1] - (WINDOW_SIZE[1]/2 + player.height/2))/18)
+        scroll[0] += int((player.rect.x - scroll[0] - (WINDOW_SIZE[0]/2 + player.width/2))/18) * dt
+        scroll[1] += int((player.rect.y - scroll[1] - (WINDOW_SIZE[1]/2 + player.height/2))/18) * dt
 
     # Events
         for event in pygame.event.get():
@@ -922,6 +914,15 @@ while True:
         if player.level == 'Tutorial':
             if enemies == []:
                 player.change_level('Level 1')
+        if player.level == 'Level 1':
+            if enemies == []:
+                player.change_level('Level 2')
+        if player.level == 'Level 2':
+            if enemies == []:
+                player.change_level('Level 3')
+        if player.level == 'Level 3':
+            if enemies == []:
+                player.change_level('Level 4')
 
     # player bullets
         for bullet in bullets:
