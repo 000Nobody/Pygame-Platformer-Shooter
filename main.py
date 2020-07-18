@@ -601,7 +601,7 @@ def move(rect, tiles, movement):
     rect.x += movement[0] * dt
     hit_list = collision_check(rect, tiles)
     for tile in hit_list:
-        if movement[0] * Ddt > 0:
+        if movement[0] * dt > 0:
             rect.right = tile.left
             collision_types['right'] = True
         elif movement[0] * dt < 0:
