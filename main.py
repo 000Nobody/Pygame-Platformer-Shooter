@@ -601,19 +601,19 @@ def move(rect, tiles, movement):
     rect.x += movement[0] * dt
     hit_list = collision_check(rect, tiles)
     for tile in hit_list:
-        if movement[0] > 0:
+        if movement[0] * Ddt > 0:
             rect.right = tile.left
             collision_types['right'] = True
-        elif movement[0] < 0:
+        elif movement[0] * dt < 0:
             rect.left = tile.right
             collision_types['left'] = True
     rect.y += movement[1] * dt
     hit_list = collision_check(rect, tiles)
     for tile in hit_list:
-        if movement[1] > 0:
+        if movement[1] * dt > 0:
             rect.bottom = tile.top
             collision_types['bottom'] = True
-        elif movement[1] < 0:
+        elif movement[1] * dt < 0:
             rect.top = tile.bottom
             collision_types['top'] = True
 
@@ -1008,7 +1008,7 @@ while True:
                     fade_in = True
                     play_bgmusic()
                     player.change_level('Level 1')
-        if player.level == 'Level 1':
+        elif player.level == 'Level 1':
             if enemies == []:
                 fade_out = True
                 pygame.mixer.music.fadeout(1000)
@@ -1016,7 +1016,7 @@ while True:
                     fade_in = True
                     play_bgmusic()
                     player.change_level('Level 2')
-        if player.level == 'Level 2':
+        elif player.level == 'Level 2':
             if enemies == []:
                 fade_out = True
                 pygame.mixer.music.fadeout(1000)
@@ -1024,7 +1024,7 @@ while True:
                     fade_in = True
                     play_bgmusic()
                     player.change_level('Level 3')
-        if player.level == 'Level 3':
+        elif player.level == 'Level 3':
             if enemies == []:
                 fade_out = True
                 pygame.mixer.music.fadeout(1000)
@@ -1032,7 +1032,7 @@ while True:
                     fade_in = True
                     play_bgmusic()
                     player.change_level('Level 4')
-        if player.level == 'Level 4':
+        elif player.level == 'Level 4':
             if enemies == []:
                 fade_out = True
                 pygame.mixer.music.fadeout(1000)
@@ -1040,7 +1040,7 @@ while True:
                     fade_in = True
                     play_bgmusic()
                     player.change_level('Level 5')
-        if player.level == 'Level 5':
+        elif player.level == 'Level 5':
             if enemies == []:
                 pygame.mixer.music.fadeout(1000)
                 game_running = False
