@@ -151,39 +151,39 @@ class Level():
             for tile in layer:
                 if tile == '1':
                     display.blit(pygame.transform.scale(grass, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
-                if tile == '2':
+                elif tile == '2':
                     display.blit(pygame.transform.scale(dirt, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
-                if tile == '3':
+                elif tile == '3':
                     display.blit(pygame.transform.scale(left_edge_dirt, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
-                if tile == '4':
+                elif tile == '4':
                     display.blit(pygame.transform.scale(right_edge_dirt, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
-                if tile == '5':
+                elif tile == '5':
                     display.blit(pygame.transform.scale(left_edge_grass, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
-                if tile == '6':
+                elif tile == '6':
                     display.blit(pygame.transform.scale(right_edge_grass, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
-                if tile == '7':
+                elif tile == '7':
                     display.blit(pygame.transform.scale(left_edge_platform, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
-                if tile == '8':
+                elif tile == '8':
                     display.blit(pygame.transform.scale(middle_platform, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
-                if tile == '9':
+                elif tile == '9':
                     display.blit(pygame.transform.scale(right_edge_platform, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
-                if tile == 'a':
+                elif tile == 'a':
                     display.blit(pygame.transform.scale(left_transition_dirt, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
-                if tile == 'b':
+                elif tile == 'b':
                     display.blit(pygame.transform.scale(right_transition_dirt, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))    
-                if tile == 'c':
+                elif tile == 'c':
                     display.blit(pygame.transform.scale(left_transition_grass, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))            
-                if tile == 'd':
+                elif tile == 'd':
                     display.blit(pygame.transform.scale(right_transition_grass, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
-                if tile == 'e':
+                elif tile == 'e':
                     display.blit(pygame.transform.scale(left_side_grass_transition, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
-                if tile == 'f':
+                elif tile == 'f':
                     display.blit(pygame.transform.scale(right_side_grass_transition, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
-                if tile == 'g':
+                elif tile == 'g':
                     display.blit(pygame.transform.scale(left_bottom_corner_dirt, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
-                if tile == 'h':
+                elif tile == 'h':
                     display.blit(pygame.transform.scale(right_bottom_corner_dirt, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
-                if tile == 'i':
+                elif tile == 'i':
                     display.blit(pygame.transform.scale(bottom_dirt, (self.tile_size[0], self.tile_size[1])), (x - scroll[0], y - scroll[1]))
                 x += self.tile_size[0]
             y += self.tile_size[1]
@@ -364,7 +364,8 @@ class Enemy():
             self.jumping = False
         self.movement[1] = self.vertical_momentum
 
-        self.rect, self.collision_types, self.hit_list = move(self.rect, tile_rects + [enemy.rect for enemy in enemies if enemy.id != self.id], self.movement)
+        self.rect, self.collision_types, self.hit_list = move(self.rect, tile_rects
+                                                              + [enemy.rect for enemy in enemies if enemy.id != self.id], self.movement)
 
         self.vertical_momentum += gravity_strength * dt
         if self.vertical_momentum > 50:
@@ -408,7 +409,8 @@ class Enemy():
             if self.shoot_timer >= 60:
                 self.slopex = (player.rect.centerx - scroll[0]) - (self.rect.centerx - scroll[0] + 5)
                 self.slopey = (player.rect.centery - scroll[1]) - (self.rect.centery - scroll[1] + 35)
-                enemy_bullets.append(Projectile(self.rect.centerx + 5, self.rect.centery + 35, 15, 17, 35, math.atan2(self.slopey, self.slopex), enemy_projectile_img))
+                enemy_bullets.append(Projectile(self.rect.centerx + 5, self.rect.centery + 35, 15, 17, 35,
+                                     math.atan2(self.slopey, self.slopex), enemy_projectile_img))
                 self.shoot_timer = 0
         if self.rect.colliderect(player.rect):
             player.health -= 2
@@ -512,7 +514,8 @@ class Projectile():
                 self.collision_types['left'] = True
 
 class Particle():
-    def __init__(self, x, y, colors, min_xvel, max_xvel, min_yvel, max_yvel, min_radius, max_radius, shrink_rate, gravity):
+    def __init__(self, x, y, colors, min_xvel, max_xvel, min_yvel,
+                 max_yvel, min_radius, max_radius, shrink_rate, gravity):
         self.x = x
         self.y = y
         self.color = random.choice(colors)
@@ -570,7 +573,8 @@ levels = {'Tutorial':Level('map0', (600, 490), [(2940, 250)], 1400),
           'Level 1':Level('map1', (830, -100), [(140, -145), (5375, 280), (7215, 345)], 800),
           'Level 2':Level('map2', (600, 800), [(255, 445), (1695, -130), (3925, 380), (3915, 0)], 1900),
           'Level 3':Level('map3', (50, 400), [(1790, 400), (3125, 100)], 1000),
-          'Level 4':Level('map4', (295, 100), [(1105, 480), (1855, 600), (3935, 675), (4385, 925), (5045, 850)], 1500)}
+          'Level 4':Level('map4', (295, 100), [(1105, 480), (1855, 600), (3935, 675), (4385, 925), (5045, 850)], 1500),
+          'Level 5':Level('map5', (165, -200), [(4865, 350), (5720, 550), (8205, 350), (10690, 550)], 1500)} 
 for level in levels:
     levels[level].load_map()
 
@@ -747,7 +751,7 @@ def draw():
         draw_escape_menu()
 
     if fade_out:
-        fade_alpha += 5
+        fade_alpha += 7
         fade_surface = pygame.Surface(WINDOW_SIZE)
         fade_surface.fill((0, 0, 0))
         fade_surface.set_alpha(fade_alpha)
@@ -756,12 +760,12 @@ def draw():
             fade_out = False
 
     if fade_in:
-        fade_alpha -= 5
+        fade_alpha -= 7
         fade_surface = pygame.Surface(WINDOW_SIZE)
         fade_surface.fill((0, 0, 0))
         fade_surface.set_alpha(fade_alpha)
         display.blit(fade_surface, (0, 0))
-        if fade_alpha <= 5:
+        if fade_alpha <= 0:
             fade_in = False
 
     screen.blit(pygame.transform.scale(display, WINDOW_SIZE), (0, 0))
@@ -1029,6 +1033,14 @@ while True:
                     play_bgmusic()
                     player.change_level('Level 4')
         if player.level == 'Level 4':
+            if enemies == []:
+                fade_out = True
+                pygame.mixer.music.fadeout(1000)
+                if fade_alpha >= 300:
+                    fade_in = True
+                    play_bgmusic()
+                    player.change_level('Level 5')
+        if player.level == 'Level 5':
             if enemies == []:
                 pygame.mixer.music.fadeout(1000)
                 game_running = False
