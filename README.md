@@ -1,22 +1,18 @@
 # Pygame-Platformer-Shooter
 First major project on Python
 
-Controls:
+## Using the application
+* Clone github repository
+* Download required dependencies: ```$ pip install -r requirements.txt```
+* ```$ python main.py```
 
-Move Right - d
-
-Move Left - a
-
-Jump - w or Space
-
-Sprint - Shift
-
-Aim - Move Mouse
-
-Shoot - Left Click
-
-Escape to Menu (if in game) - Escape
-
-Exit Fullscreen (if in menu) - Escape
-
-Enter Fullscreen - f
+## Controls
+* Move Right - d
+* Move Left - a
+* Jump - w or Space
+* Sprint - Shift
+* Aim - Move Mouse
+* Shoot - Left Click
+* Escape to Menu (if in game) - Escape
+* Exit Fullscreen (if in menu) - Escape
+* Enter Fullscreen - f
