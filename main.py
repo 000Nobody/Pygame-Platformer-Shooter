@@ -127,7 +127,6 @@ class Level():
         self.map = []
         with open(self.path, 'r') as f:
             data = f.read()
-            f.close()
             data = data.split('\n')
             for row in data:
                 self.map.append(list(row))
@@ -950,7 +949,7 @@ while True:
 
     levels[player.level].create_map_hitbox()
     if game_running:
-        levels[player.level].timer += round((1 * dt)/100, 2)
+        levels[player.level].timer += round((FPS/clock.get_fps())/100, 2)
 
         scroll[0] += int((player.rect.x - scroll[0] - (WINDOW_SIZE[0]/2 + player.width/2))/18) * dt
         scroll[1] += int((player.rect.y - scroll[1] - (WINDOW_SIZE[1]/2 + player.height/2))/18) * dt
