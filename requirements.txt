@@ -1,2 +1,2 @@
 numpy==1.19.1
-pygame==1.9.6
+pygame==2.0.0.dev10
