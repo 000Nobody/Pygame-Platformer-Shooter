@@ -17,3 +17,5 @@ First major project on Python
 * Escape to Menu (if in game) - Escape
 * Exit Fullscreen (if in menu) - Escape
 * Enter Fullscreen - f
+
+**I do not take credit for most of the art**
